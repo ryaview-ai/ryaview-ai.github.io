@@ -2034,11 +2034,12 @@ STRICT RULES — every rule is mandatory:
           // AI has overridden the spec winner based on client context
           winner = aiWinnerCam;
           winnerScore = scored.find(s => s.cam === aiWinnerCam)?.score || winnerScore;
-          window._cmpWinner = winner; window._cmpWinnerScore = winnerScore;
+          window._cmpWinner = winner; window._cmpWinnerScore = winnerScore; window._cmpAIReasons = ai.winner.reasons || [];
           const wc = document.getElementById('winner-card');
           wc.innerHTML = buildWinnerCard(winner, winnerScore, cams, ai.winner.reasons);
         } else {
           // Same winner — just update the reasons
+          window._cmpAIReasons = ai.winner.reasons || [];
           const wr = document.getElementById('winner-reasons');
           if (wr && ai.winner.reasons) {
             wr.innerHTML = ai.winner.reasons.map(r =>
@@ -2049,6 +2050,7 @@ STRICT RULES — every rule is mandatory:
       }
 
       // Update verdict cells — highlight based on AI winner
+      window._cmpAIVerdicts = ai.verdicts || [];
       if (ai.verdicts) {
         cams.forEach(c => {
           const v = ai.verdicts.find(x => x.brand === c.brand && x.model === c.model);
@@ -2068,137 +2070,238 @@ STRICT RULES — every rule is mandatory:
 /* ── EXPORT COMPARE PDF ── */
 function exportPDF() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a3' });
-
-  // Use the winner that was shown on screen (including AI override)
   if (!window._cmpWinner) { alert('Run Compare first.'); return; }
-  const cams   = window._cmpCams;
-  const scored = window._cmpScored;
-  const winner = window._cmpWinner;
-  const winSc  = window._cmpWinnerScore;
-  const isAxis = winner.brand === 'Axis';
+
+  const cams    = window._cmpCams;
+  const scored  = window._cmpScored;
+  const winner  = window._cmpWinner;
+  const winSc   = window._cmpWinnerScore;
+  const reasons = window._cmpAIReasons || [];
+  const verdicts= window._cmpAIVerdicts || [];
+  const isAxis  = winner.brand === 'Axis';
 
   const now     = new Date();
   const dateStr = now.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
 
-  // Dark background + accent line
-  doc.setFillColor(13,17,23); doc.rect(0,0,420,297,'F');
-  doc.setFillColor(79,142,247); doc.rect(0,0,420,1,'F');
+  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a3' });
+  const PW  = 420, PH = 297;
+  const ML  = 14, MR = 14;
+  const CW  = PW - ML - MR;
 
-  // Logo — ā mark circle + ryaview.ai wordmark
-  // Gold circle for ā mark
-  doc.setFillColor(232,168,32);
-  doc.circle(18, 12, 5, 'F');
-  // Dark background circle
-  doc.setFillColor(13,17,23);
-  doc.circle(18, 12, 4, 'F');
-  // ā text in circle
-  doc.setTextColor(220,232,244); doc.setFontSize(8); doc.setFont('helvetica','bolditalic');
-  doc.text('a', 18, 14.5, { align:'center' });
-  // Gold brushstroke bar above .ai
-  doc.setFillColor(232,168,32);
-  doc.roundedRect(46, 7.5, 13, 1.5, 0.5, 0.5, 'F');
+  // ── helpers ──
+  const bg    = (r,g,b) => { doc.setFillColor(r,g,b); };
+  const fg    = (r,g,b) => { doc.setTextColor(r,g,b); };
+  const ln    = (r,g,b) => { doc.setDrawColor(r,g,b); };
+
+  // ── Page background ──
+  bg(13,17,23); doc.rect(0,0,PW,PH,'F');
+  // Blue accent line top
+  bg(79,142,247); doc.rect(0,0,PW,1.2,'F');
+
+  // ── LOGO ──
+  // Gold brushstroke oval behind ā
+  bg(232,168,32);
+  doc.ellipse(18, 9.5, 5.5, 1.8, 'F');
+  // Dark circle for ā
+  bg(13,17,23);
+  doc.circle(18, 13, 5.5, 'F');
+  // Thin gold ring
+  ln(232,168,32); doc.setLineWidth(0.8);
+  doc.circle(18, 13, 5.5, 'S');
+  // ā text
+  fg(220,232,244); doc.setFontSize(9); doc.setFont('helvetica','bolditalic');
+  doc.text('a', 18, 15.5, { align:'center' });
+  // Divider
+  bg(50,70,100); doc.rect(26.5, 8, 0.4, 12, 'F');
   // ryaview text
-  doc.setTextColor(220,232,244); doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text('ryaview', 26, 15);
-  // .ai in gold
-  doc.setTextColor(232,168,32); doc.setFontSize(16);
-  doc.text('.ai', 47, 15);
+  fg(237,244,252); doc.setFontSize(17); doc.setFont('helvetica','bold');
+  doc.text('ryaview', 29, 17);
+  // Gold brushstroke above .ai
+  const rww = doc.getTextWidth('ryaview');
+  bg(232,168,32); doc.roundedRect(29+rww, 8.5, 14, 2, 0.8, 0.8, 'F');
+  // .ai in gold gradient simulation
+  fg(232,168,32); doc.setFontSize(17); doc.setFont('helvetica','bold');
+  doc.text('.ai', 29+rww, 17);
   // Subtitle
-  doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(107,133,168);
-  doc.text('CAMERA INTELLIGENCE PLATFORM  ·  INTERNAL USE ONLY', 26, 20);
+  fg(144,174,206); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
+  doc.text('CAMERA INTELLIGENCE  ·  INTERNAL', 29, 21.5);
 
-  // Title
-  doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(220,232,244);
-  doc.text('Camera Comparison Report',14,30);
-  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(107,133,168);
-  doc.text('Generated: '+dateStr+'  ·  '+cams.length+' cameras compared',14,36);
+  // Report title right side
+  fg(237,244,252); doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('Camera Comparison Report', PW-MR, 13, { align:'right' });
+  fg(107,133,168); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('Generated: '+dateStr+'  ·  '+cams.length+' cameras compared', PW-MR, 18, { align:'right' });
 
-  // Winner recommendation box
-  doc.setFillColor(isAxis?17:13, isAxis?27:20, isAxis?50:35);
-  doc.setDrawColor(isAxis?79:0, isAxis?142:200, isAxis?247:83);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(14,40,392,30,2,2,'FD');
+  // ── WINNER CARD ──
+  let Y = 28;
+  const winColor = isAxis ? [79,142,247] : [0,200,83];
+  const winBG    = isAxis ? [17,27,50]   : [13,30,20];
+  bg(...winBG); ln(...winColor); doc.setLineWidth(0.6);
+  doc.roundedRect(ML, Y, CW, 52, 2, 2, 'FD');
 
-  doc.setFontSize(7); doc.setFont('helvetica','bold');
-  doc.setTextColor(isAxis?122:0, isAxis?173:200, isAxis?250:83);
-  doc.text('RYAVIEW RECOMMENDS  ·  BEST OVERALL  ·  SCORE '+winSc.total+'/108', 18, 47);
+  // Winner badge
+  fg(...winColor); doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+  doc.text('◎  RYAVIEW RECOMMENDS  ·  BEST OVERALL', ML+5, Y+7);
+  // Score badge
+  const scoreStr = winSc.total + '/108';
+  const sbW = doc.getTextWidth(scoreStr) + 8;
+  bg(...winColor); doc.roundedRect(CW+ML-sbW-5, Y+3, sbW, 7, 1, 1, 'F');
+  fg(13,17,23); doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.text(scoreStr, CW+ML-sbW/2-5, Y+8.5, { align:'center' });
 
-  doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(220,232,244);
-  doc.text(winner.brand+' — '+winner.model, 18, 55);
+  // Winner brand + model
+  fg(237,244,252); doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text(winner.brand + '  ' + winner.model, ML+5, Y+17);
+  fg(144,174,206); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+  doc.text((winner.type||'')+'  ·  '+(winner.res||'')+'  ·  '+(winner.country||''), ML+5, Y+23);
 
-  doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(107,133,168);
-  doc.text(winner.type+' · '+winner.res+' · '+winner.country, 18, 61);
-
-  const bkd   = winSc.breakdown;
-  const bkdStr= 'Value '+bkd.value+'/22  ·  Low Light '+bkd.lowLight+'/20  ·  Storage '+bkd.storage+'/18  ·  Warranty '+bkd.warranty+'/15  ·  AI '+bkd.ai+'/15  ·  Compression '+bkd.compress+'/10  ·  Trust Index '+bkd.trust+'/8';
-  doc.setFontSize(6.5); doc.setTextColor(isAxis?79:0, isAxis?120:160, isAxis?200:80);
-  doc.text(bkdStr, 406, 55, { align:'right' });
-
-  if (isAxis) {
-    doc.setFontSize(6.5); doc.setTextColor(79,120,200);
-    doc.text('Axis USPs: AXIS OS  ·  TPM 2.0 Secure Boot  ·  PSIRT Security Team  ·  5-Year Warranty  ·  No Govt. Ban Risk  ·  70,000+ Open Ecosystem  ·  Forensic WDR 120dB  ·  Zipstream', 18, 66, { maxWidth:388 });
-  }
-
-  // ── Comparison table ──
-  const headers = ['Specification', ...cams.map(c=>c.brand+' '+c.model+' ['+scored.find(s=>s.cam===c).score.total+']')];
-
-  const rows = [
-    ['Ryaview Score',      ...cams.map(c=>scored.find(s=>s.cam===c).score.total+' / 108')],
-    ['Resolution',         ...cams.map(c=>c.res)],
-    ['Country of Mfr.',    ...cams.map(c=>c.country)],
-    ['Low Light',          ...cams.map(c=>'★'.repeat(c.lowLight)+'☆'.repeat(5-c.lowLight))],
-    ['Unit Price (INR)',    ...cams.map(c=>c.price)],
-    ['Warranty',           ...cams.map(c=>c.warranty+' Years  —  '+c.warrantyType)],
-    ['Compression',        ...cams.map(c=>c.codecs.join(', ')+'\n'+c.saving)],
-    ['Storage / hr',       ...cams.map(c=>c.storageBase+' GB/hr')],
-    ['Trust Index',        ...cams.map(c=>{
-      const sc=scored.find(s=>s.cam===c).score.breakdown;
-      if (c.brand==='Axis') return 'AXIS OS + TPM 2.0 + PSIRT + No Ban Risk\nTrust: '+sc.trust+'/8';
-      return c.brand+' standard platform\nTrust: '+sc.trust+'/8';
-    })],
-    ['AI Analytics',       ...cams.map(c=>c.ai.join(', '))],
-    ['Verdict',            ...cams.map(c=>c.verdict)]
+  // Score bars
+  const bkd = winSc.breakdown;
+  const bars = [
+    { label:'Value',       val:bkd.value,    max:22, color:[79,142,247] },
+    { label:'Low Light',   val:bkd.lowLight, max:20, color:[168,85,247] },
+    { label:'Storage',     val:bkd.storage,  max:18, color:[0,200,83]   },
+    { label:'Warranty',    val:bkd.warranty, max:15, color:[234,179,8]  },
+    { label:'AI Features', val:bkd.ai,       max:15, color:[236,72,153] },
+    { label:'Compression', val:bkd.compress, max:10, color:[20,184,166] },
+    { label:'Trust',       val:bkd.trust,    max:8,  color:[249,115,22] },
   ];
 
-  const lowestPriceNum = Math.min(...cams.filter(c=>c.priceNum>0).map(c=>c.priceNum));
-  const bestWarrantyNum= Math.max(...cams.map(c=>c.warranty));
-  const lowestStorNum  = Math.min(...cams.map(c=>c.storageNum));
-  const bestLLNum      = Math.max(...cams.map(c=>c.lowLight));
+  const barStartX = CW/2 + ML + 10;
+  const barW      = CW/2 - 20;
+  const barH      = 3.5;
+  const barGap    = 5.8;
+  bars.forEach((b, i) => {
+    const bY = Y + 29 + i * barGap;
+    // Label
+    fg(144,174,206); doc.setFontSize(6); doc.setFont('helvetica','normal');
+    doc.text(b.label, barStartX, bY+2.5);
+    const lw = 22;
+    // Track
+    bg(31,45,69); doc.roundedRect(barStartX+lw, bY, barW-lw-18, barH, 1, 1, 'F');
+    // Fill
+    const fillW = Math.max(2, (b.val/b.max) * (barW-lw-18));
+    bg(...b.color); doc.roundedRect(barStartX+lw, bY, fillW, barH, 1, 1, 'F');
+    // Score
+    fg(205,218,235); doc.setFontSize(6); doc.setFont('helvetica','bold');
+    doc.text(b.val+'/'+b.max, barStartX+barW-14, bY+2.8, { align:'right' });
+  });
+
+  // AI winner reasons
+  if (reasons.length > 0) {
+    fg(...winColor); doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+    doc.text('WHY '+winner.brand.toUpperCase()+' WINS BEYOND THE SPEC SHEET', ML+5, Y+30);
+    fg(205,218,235); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
+    reasons.slice(0,3).forEach((r, i) => {
+      const reasonY = Y + 35 + i * 6;
+      fg(...winColor); doc.text('✓', ML+5, reasonY);
+      fg(190,210,235); doc.text(r, ML+10, reasonY, { maxWidth: CW/2 - 15 });
+    });
+  }
+
+  Y += 58;
+
+  // ── COMPARISON TABLE ──
+  const getScore = (cam) => scored.find(s => s.cam === cam)?.score;
+
+  const headers = [
+    { content: 'Specification', styles: { fillColor:[17,21,32], textColor:[107,133,168], fontStyle:'bold', cellWidth:35 } },
+    ...cams.map(c => {
+      const sc = getScore(c);
+      const isW = c === winner;
+      return {
+        content: c.brand + '
+' + c.model + '
+' + sc.total + '/108',
+        styles: {
+          fillColor: isW ? [17,27,50] : [17,21,32],
+          textColor: isW ? [122,173,250] : [220,232,244],
+          fontStyle: 'bold',
+          halign: 'center'
+        }
+      };
+    })
+  ];
+
+  const lowestPrice = Math.min(...cams.filter(c=>c.priceNum>0).map(c=>c.priceNum));
+  const bestWarranty= Math.max(...cams.map(c=>c.warranty));
+  const bestLL      = Math.max(...cams.map(c=>c.lowLight));
+
+  const getVerdict = (cam) => {
+    const v = verdicts.find(x => x.brand === cam.brand && x.model === cam.model);
+    return v ? v.verdict : (cam.verdict || '—');
+  };
+
+  const rows = [
+    ['Ryaview Score',   ...cams.map(c => getScore(c).total + ' / 108 TOTAL')],
+    ['Resolution',      ...cams.map(c => c.res || '—')],
+    ['Country of Mfr.', ...cams.map(c => c.country || '—')],
+    ['Low Light',       ...cams.map(c => '★'.repeat(c.lowLight) + '☆'.repeat(5-c.lowLight) + '  (' + c.lowLight + '/5)')],
+    ['Unit Price (INR)',...cams.map(c => c.price ? '₹ ' + c.price.toLocaleString('en-IN') : '—')],
+    ['Warranty',        ...cams.map(c => c.warranty + ' Years  —  ' + (c.warrantyType||''))],
+    ['Compression',     ...cams.map(c => (c.codecs||[]).join(', ') + '
+' + (c.saving||''))],
+    ['Storage / hr',    ...cams.map(c => (c.storageBase||'—') + ' GB/hr')],
+    ['Trust Index',     ...cams.map(c => { const sc=getScore(c); return (c.cybersecurity||c.brand+' platform') + '
+Trust: ' + sc.breakdown.trust + '/8'; })],
+    ['AI Analytics',    ...cams.map(c => (c.ai||[]).join(', ') || '—')],
+    ['AI Verdict',      ...cams.map(c => getVerdict(c))],
+  ];
 
   doc.autoTable({
     head: [headers],
     body: rows,
-    startY: 74,
-    margin: { left:14, right:14 },
-    styles: { fontSize:6.8, cellPadding:3, font:'helvetica', textColor:[168,189,212], fillColor:[22,27,39], lineColor:[31,45,69], lineWidth:0.25, overflow:'linebreak' },
-    headStyles: { fillColor:[17,21,32], textColor:[220,232,244], fontSize:7.5, fontStyle:'bold', halign:'center' },
-    alternateRowStyles: { fillColor:[23,29,46] },
-    columnStyles: { 0:{ fillColor:[17,21,32], textColor:[107,133,168], fontStyle:'bold', cellWidth:32, fontSize:6.5 } },
+    startY: Y,
+    margin: { left: ML, right: MR },
+    styles: {
+      fontSize: 6.8, cellPadding: 3.5, font: 'helvetica',
+      textColor: [168,189,212], fillColor: [22,27,39],
+      lineColor: [31,45,69], lineWidth: 0.25, overflow: 'linebreak', minCellHeight: 8
+    },
+    headStyles: { fillColor: [17,21,32], textColor: [220,232,244], fontSize: 7.5, fontStyle: 'bold', halign: 'center', minCellHeight: 16 },
+    alternateRowStyles: { fillColor: [23,29,46] },
+    columnStyles: { 0: { fillColor:[17,21,32], textColor:[107,133,168], fontStyle:'bold', cellWidth:35, fontSize:6.5 } },
     didParseCell: function(data) {
-      if (data.section==='body' && data.column.index > 0) {
-        const ci=data.column.index-1;
-        if (ci<cams.length) {
-          const c=cams[ci]; const ri=data.row.index;
-          if (c===winner) { data.cell.styles.fillColor=[17,27,50]; data.cell.styles.textColor=[122,173,250]; data.cell.styles.fontStyle='bold'; }
-          else if ((ri===3&&c.priceNum===lowestPriceNum)||(ri===4&&c.warranty===bestWarrantyNum)||
-                   (ri===6&&c.storageNum===lowestStorNum)||(ri===2&&c.lowLight===bestLLNum)) {
-            data.cell.styles.textColor=[0,200,83];
-          }
+      if (data.section === 'body' && data.column.index > 0) {
+        const ci  = data.column.index - 1;
+        const cam = cams[ci];
+        const ri  = data.row.index;
+        const sc  = getScore(cam);
+        if (!cam || !sc) return;
+        const isW = cam === winner;
+        if (isW) {
+          data.cell.styles.fillColor  = [17,27,50];
+          data.cell.styles.textColor  = [122,173,250];
+          data.cell.styles.fontStyle  = 'bold';
+        }
+        // Green highlight for best value in each row
+        if (ri === 0) { // Score
+          const maxSc = Math.max(...cams.map(c=>getScore(c).total));
+          if (sc.total === maxSc) { data.cell.styles.textColor = [0,200,83]; data.cell.styles.fontStyle='bold'; }
+        }
+        if (ri === 4 && cam.priceNum === lowestPrice && cam.priceNum > 0) {
+          if (!isW) data.cell.styles.textColor = [0,200,83];
+        }
+        if (ri === 5 && cam.warranty === bestWarranty) {
+          if (!isW) data.cell.styles.textColor = [0,200,83];
+        }
+        if (ri === 3 && cam.lowLight === bestLL) {
+          if (!isW) data.cell.styles.textColor = [0,200,83];
         }
       }
     }
   });
 
-  // ── Footer ──
-  const finalY = doc.lastAutoTable.finalY + 8;
-  doc.setFillColor(31,45,69);
-  doc.rect(14, finalY, 392, 0.3, 'F');
-  doc.setFontSize(7);
-  doc.setTextColor(130,155,190);
-  doc.text('Designed & generated by ryaview.ai  ·  Camera Intelligence Platform  ·  For authorised internal use only', 14, finalY+5);
-  doc.text('Prices are indicative only — exclusive of GST, customs duties, freight and installation. Verify with authorised distributor before quoting.', 14, finalY+9);
-  doc.text('© ryaview.ai  ·  ' + dateStr, 14, finalY+13);
+  // ── FOOTER ──
+  const finalY = Math.min(doc.lastAutoTable.finalY + 7, PH - 15);
+  bg(31,45,69); doc.rect(ML, finalY, CW, 0.3, 'F');
+  fg(130,155,190); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
+  doc.text('Designed & generated by ryaview.ai  ·  Camera Intelligence Platform  ·  For authorised internal use only', ML, finalY+5);
+  doc.text('Prices are indicative only — exclusive of GST, customs duties, freight & installation. Verify with authorised distributor before quoting.', ML, finalY+9);
+  fg(79,142,247);
+  doc.text('ryaview.ai', ML, finalY+13);
+  fg(107,133,168);
+  doc.text('  ·  ' + dateStr, ML + doc.getTextWidth('ryaview.ai'), finalY+13);
 
   doc.save('ryaview_comparison_' + dateStr.replace(/ /g,'_') + '.pdf');
 }
@@ -2619,95 +2722,161 @@ function getProjMeta() {
 function boqPDFDoc(brand, rows, meta, isAlt) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const PW = 210, PH = 297, ML = 14, MR = 14, CW = PW - ML - MR;
   const dateStr = new Date(meta.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
 
-  // Dark background
+  // ── Page background ──
+  doc.setFillColor(13,17,23); doc.rect(0,0,PW,PH,'F');
+  // Blue accent line
+  doc.setFillColor(79,142,247); doc.rect(0,0,PW,1.2,'F');
+
+  // ── LOGO (matches webpage exactly) ──
+  // Gold brushstroke oval behind ā
+  doc.setFillColor(232,168,32);
+  doc.ellipse(19, 9, 5, 1.6, 'F');
+  // Dark circle for ā mark
   doc.setFillColor(13,17,23);
-  doc.rect(0,0,210,297,'F');
-  // Accent
-  doc.setFillColor(79,142,247);
-  doc.rect(0,0,210,1.2,'F');
+  doc.circle(19, 12.5, 5, 'F');
+  // Gold ring
+  doc.setDrawColor(232,168,32); doc.setLineWidth(0.7);
+  doc.circle(19, 12.5, 5, 'S');
+  // ā text
+  doc.setTextColor(220,232,244); doc.setFontSize(8.5); doc.setFont('helvetica','bolditalic');
+  doc.text('a', 19, 14.8, { align:'center' });
+  // Vertical divider
+  doc.setFillColor(50,70,100); doc.rect(27, 7.5, 0.4, 11, 'F');
+  // ryaview
+  doc.setTextColor(237,244,252); doc.setFontSize(15); doc.setFont('helvetica','bold');
+  doc.text('ryaview', 30, 16);
+  const rww = doc.getTextWidth('ryaview');
+  // Gold brushstroke above .ai
+  doc.setFillColor(232,168,32);
+  doc.roundedRect(30+rww, 8, 12, 1.8, 0.6, 0.6, 'F');
+  // .ai in gold
+  doc.setTextColor(232,168,32); doc.setFontSize(15); doc.setFont('helvetica','bold');
+  doc.text('.ai', 30+rww, 16);
+  // Subtitle
+  doc.setTextColor(107,133,168); doc.setFontSize(6); doc.setFont('helvetica','normal');
+  doc.text('CAMERA INTELLIGENCE  ·  INTERNAL', 30, 20);
 
-  // Logo
-  doc.setFontSize(18); doc.setFont('helvetica','bold');
-  doc.setTextColor(122,173,250); doc.text('rya',14,14);
-  doc.setTextColor(220,232,244); doc.text('view.ai', 14+doc.getTextWidth('rya'),14);
-  doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.setTextColor(107,133,168);
-  doc.text('CAMERA INTELLIGENCE PLATFORM', 14, 19);
+  // ── DOCUMENT TYPE BADGE (top right) ──
+  const badgeLabel = isAlt ? 'ALTERNATIVE BOQ' : 'BILL OF QUANTITIES';
+  const badgeColor = isAlt ? [0,200,83] : [79,142,247];
+  doc.setFillColor(...badgeColor);
+  doc.roundedRect(PW-MR-50, 6, 50, 8, 1.5, 1.5, 'F');
+  doc.setTextColor(13,17,23); doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+  doc.text(badgeLabel, PW-MR-25, 11.2, { align:'center' });
 
-  // Title
-  doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.setTextColor(220,232,244);
-  const title = (isAlt ? 'Alternative BOQ — ' : 'Bill of Quantities — ') + brand;
-  doc.text(title, 14, 30);
+  // ── TITLE ──
+  let Y = 28;
+  doc.setTextColor(220,232,244); doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text((isAlt ? 'Alternative Bill of Quantities' : 'Bill of Quantities') + ' — ' + brand, ML, Y);
+  Y += 5;
   if (isAlt) {
-    doc.setFontSize(8); doc.setFont('helvetica','normal');
-    doc.setTextColor(107,133,168);
-    doc.text('Alternative to: ' + boqBrand, 14, 36);
+    doc.setTextColor(107,133,168); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+    doc.text('Alternative to: ' + boqBrand, ML, Y);
+    Y += 5;
   }
 
-  // Project meta box
-  const mY = isAlt ? 41 : 37;
+  // ── PROJECT META BOX ──
+  Y += 2;
+  const metaH = 26;
   doc.setFillColor(17,21,32);
-  doc.rect(14, mY, 182, 22, 'F');
-  doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.setTextColor(120,150,190);
-  doc.text('CLIENT', 18, mY+6);
-  doc.text('PROJECT / SITE', 80, mY+6);
-  doc.text('PREPARED BY', 140, mY+6);
-  doc.setTextColor(220,232,244); doc.setFontSize(8.5); doc.setFont('helvetica','bold');
-  doc.text(meta.client || '—', 18, mY+13);
-  doc.text(meta.site   || '—', 80, mY+13);
-  doc.text(meta.by     || '—', 140, mY+13);
-  doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.setTextColor(120,150,190);
-  doc.text('DATE', 140, mY+19);
-  doc.setTextColor(200,215,235); doc.setFontSize(8);
-  doc.text(dateStr, 140, mY+24.5);
+  doc.roundedRect(ML, Y, CW, metaH, 2, 2, 'F');
+  doc.setDrawColor(31,45,69); doc.setLineWidth(0.3);
+  doc.roundedRect(ML, Y, CW, metaH, 2, 2, 'S');
 
-  // Table — use effectivePrice (respects user-edited prices)
+  // Labels
+  doc.setTextColor(107,133,168); doc.setFontSize(6); doc.setFont('helvetica','normal');
+  doc.text('CLIENT',         ML+5,    Y+6);
+  doc.text('PROJECT / SITE', ML+65,   Y+6);
+  doc.text('PREPARED BY',    ML+122,  Y+6);
+  doc.text('DATE',           ML+122,  Y+17);
+
+  // Values
+  doc.setTextColor(220,232,244); doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.text(meta.client || '—', ML+5,   Y+13, { maxWidth:55 });
+  doc.text(meta.site   || '—', ML+65,  Y+13, { maxWidth:52 });
+  doc.text(meta.by     || '—', ML+122, Y+13, { maxWidth:52 });
+  doc.setTextColor(144,174,206); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+  doc.text(dateStr,             ML+122, Y+22);
+
+  Y += metaH + 6;
+
+  // ── ITEMS TABLE ──
   const ep = r => r.customPrice != null ? r.customPrice : r.price;
   const filled = rows.filter(r => ep(r) > 0);
+  const grandTotal = filled.reduce((s,r) => s + ep(r)*r.qty, 0);
+
   const tableRows = filled.map((r,i) => [
     String(i+1).padStart(2,'0'),
     r.model,
     r.type,
     r.res,
-    inrFull(ep(r)),
+    '₹ ' + ep(r).toLocaleString('en-IN'),
     String(r.qty),
-    inrFull(ep(r) * r.qty)
+    '₹ ' + (ep(r)*r.qty).toLocaleString('en-IN')
   ]);
-  const grandTotal = filled.reduce((s,r) => s + ep(r)*r.qty, 0);
-  tableRows.push(['','','','','Grand Total','', inrFull(grandTotal)]);
+
+  // Grand total row
+  tableRows.push([
+    '', '', '', '',
+    { content:'GRAND TOTAL', styles:{ fontStyle:'bold', textColor:[107,133,168], halign:'right', fontSize:8 } },
+    '',
+    { content:'₹ ' + grandTotal.toLocaleString('en-IN'), styles:{ fontStyle:'bold', textColor:[0,200,83], fontSize:9 } }
+  ]);
 
   doc.autoTable({
-    head: [['#','Model No.','Type','Resolution','Unit Price (INR)','Qty','Total (INR)']],
+    head: [['#', 'Model No.', 'Type', 'Resolution', 'Unit Price (INR)', 'Qty', 'Total (INR)']],
     body: tableRows,
-    startY: mY + 28,
-    margin: { left:14, right:14 },
-    styles: { fontSize:8, cellPadding:4, font:'helvetica', textColor:[168,189,212], fillColor:[22,27,39], lineColor:[31,45,69], lineWidth:0.3 },
-    headStyles: { fillColor:[17,21,32], textColor:[220,232,244], fontSize:8, fontStyle:'bold' },
-    alternateRowStyles: { fillColor:[23,29,46] },
-    columnStyles: { 0:{cellWidth:10}, 6:{fontStyle:'bold', textColor:[0,200,83]} },
+    startY: Y,
+    margin: { left: ML, right: MR },
+    styles: {
+      fontSize: 8, cellPadding: 4, font: 'helvetica',
+      textColor: [168,189,212], fillColor: [22,27,39],
+      lineColor: [31,45,69], lineWidth: 0.25
+    },
+    headStyles: {
+      fillColor: [17,21,32], textColor: [220,232,244],
+      fontSize: 8, fontStyle: 'bold', cellPadding: 5
+    },
+    alternateRowStyles: { fillColor: [23,29,46] },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center', textColor: [107,133,168] },
+      1: { cellWidth: 42, fontStyle: 'bold', textColor: [205,220,240] },
+      2: { cellWidth: 28 },
+      3: { cellWidth: 22, halign: 'center' },
+      4: { cellWidth: 32, halign: 'right' },
+      5: { cellWidth: 12, halign: 'center' },
+      6: { cellWidth: 32, halign: 'right', fontStyle: 'bold', textColor: [0,200,83] }
+    },
     didParseCell: function(d) {
-      // Grand Total row
-      if (d.section==='body' && d.row.index === tableRows.length-1) {
-        d.cell.styles.fillColor = [17,21,32];
-        d.cell.styles.textColor = d.column.index===6 ? [0,200,83] : [107,133,168];
-        d.cell.styles.fontStyle = 'bold';
-        d.cell.styles.fontSize  = 9;
+      if (d.section === 'body' && d.row.index === tableRows.length - 1) {
+        d.cell.styles.fillColor  = [17,21,32];
+        d.cell.styles.fontStyle  = 'bold';
+        d.cell.styles.fontSize   = 8.5;
+        d.cell.styles.minCellHeight = 10;
       }
     }
   });
 
-  // Footer
+  // ── DISCLAIMER BOX ──
   const fy = doc.lastAutoTable.finalY + 8;
-  doc.setFillColor(31,45,69); doc.rect(14, fy, 182, 0.3, 'F');
-  doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(130,155,190);
-  doc.text('Designed & generated by ryaview.ai  ·  Camera Intelligence Platform  ·  For authorised internal use only', 14, fy+5);
-  doc.text('All prices indicative only — exclusive of GST, customs duties, freight & installation. Verify with authorised distributor before quoting.', 14, fy+9);
-  doc.text('© ryaview.ai  ·  ' + dateStr, 14, fy+13);
+  doc.setFillColor(20,28,44);
+  doc.roundedRect(ML, fy, CW, 14, 1.5, 1.5, 'F');
+  doc.setTextColor(234,179,8); doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.text('⚠  Disclaimer', ML+4, fy+5.5);
+  doc.setTextColor(144,174,206); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
+  doc.text('All prices are indicative only — exclusive of GST, customs duties, freight & installation charges.', ML+4, fy+10);
+  doc.text('Please confirm with an authorised Axis distributor before issuing a formal quotation.', ML+4, fy+14);
+
+  // ── FOOTER ──
+  const footY = PH - 12;
+  doc.setFillColor(31,45,69); doc.rect(ML, footY-3, CW, 0.3, 'F');
+  doc.setTextColor(79,142,247); doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.text('ryaview.ai', ML, footY+2);
+  doc.setTextColor(107,133,168); doc.setFont('helvetica','normal');
+  doc.text('  ·  Camera Intelligence Platform  ·  For authorised internal use only  ·  ' + dateStr, ML + doc.getTextWidth('ryaview.ai'), footY+2);
 
   return { doc, dateStr };
 }
