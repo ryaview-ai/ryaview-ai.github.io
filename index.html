@@ -2106,27 +2106,27 @@ function exportPDF() {
   // Blue accent line top
   bg(79,142,247); doc.rect(0,0,PW,1.2,'F');
 
-  // ── LOGO — matches webpage exactly: gold brushstroke above italic 'a', no circle ──
-  // Gold brushstroke (the ā diacritic mark — a curved stroke above the letter)
-  bg(232,168,32); doc.roundedRect(12, 7, 14, 2.5, 1.2, 1.2, 'F');
-  // italic 'a' below the brushstroke
-  fg(220,232,244); doc.setFontSize(12); doc.setFont('helvetica','bolditalic');
-  doc.text('a', 19, 18, { align:'center' });
+  // ── LOGO ──
+  // Gold brushstroke bar (the ā macron mark above the 'a')
+  bg(232,168,32); doc.roundedRect(12, 6.5, 14, 3, 1.5, 1.5, 'F');
+  // Italic bold 'a' — larger so it's actually readable
+  fg(220,232,244); doc.setFontSize(14); doc.setFont('helvetica','bolditalic');
+  doc.text('a', 19, 18.5, { align:'center' });
   // Vertical divider
-  bg(50,70,100); doc.rect(28.5, 7, 0.4, 12, 'F');
-  // "ryaview" white bold
-  fg(237,244,252); doc.setFontSize(18); doc.setFont('helvetica','bold');
-  doc.text('ryaview', 31, 17);
-  // Measure ryaview width for .ai placement
+  bg(50,70,100); doc.rect(28.5, 6, 0.4, 15, 'F');
+  // "ryaview" — white bold, larger
+  fg(237,244,252); doc.setFontSize(20); doc.setFont('helvetica','bold');
+  doc.text('ryaview', 31, 18);
+  // Measure for .ai placement
   const rww = doc.getTextWidth('ryaview');
-  // Gold brushstroke bar above .ai — matches webpage SVG
-  bg(232,168,32); doc.roundedRect(31+rww, 7.5, 13, 2.2, 0.8, 0.8, 'F');
+  // Gold brushstroke above .ai
+  bg(232,168,32); doc.roundedRect(31+rww, 6.5, doc.getTextWidth('.ai')+2, 2.5, 0.8, 0.8, 'F');
   // ".ai" in gold
-  fg(232,168,32); doc.setFontSize(18); doc.setFont('helvetica','bold');
-  doc.text('.ai', 31+rww, 17);
+  fg(232,168,32); doc.setFontSize(20); doc.setFont('helvetica','bold');
+  doc.text('.ai', 31+rww, 18);
   // Subtitle
-  fg(144,174,206); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-  doc.text('CAMERA INTELLIGENCE  ·  INTERNAL', 31, 22);
+  fg(144,174,206); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('CAMERA INTELLIGENCE  *  INTERNAL', 31, 23);
 
   // Report title right side
   fg(237,244,252); doc.setFontSize(10); doc.setFont('helvetica','bold');
@@ -2141,93 +2141,98 @@ function exportPDF() {
   const winBG     = isAxis ? [14,22,42]    : [11,26,18];
   const winBorder = isAxis ? [40,80,160]   : [0,120,60];
 
-  // Card — tall enough for reasons + USP pills
-  const CARD_H = isAxis ? 98 : 78;
+  // Card height — Axis needs more room for USP pills
+  const CARD_H = isAxis ? 112 : 85;
   bg(...winBG); doc.setDrawColor(...winBorder); doc.setLineWidth(0.5);
   doc.roundedRect(ML, Y, CW, CARD_H, 2.5, 2.5, 'FD');
-  // Accent left edge strip
-  bg(...winColor); doc.rect(ML, Y+4, 1.5, CARD_H-8, 'F');
+  // Blue left accent bar
+  bg(...winColor); doc.rect(ML, Y+6, 1.8, CARD_H-12, 'F');
 
-  // ── LEFT COLUMN (brand, reasons, USP pills) ──
-  const leftW  = CW * 0.58;  // 58% for left, 42% for right
-  const leftX  = ML + 6;
-  const rightX = ML + leftW + 8;
-  const rightW = CW - leftW - 12;
+  // ── COLUMN LAYOUT ──
+  const leftW     = CW * 0.60;
+  const leftX     = ML + 7;
+  const rightX    = ML + leftW + 10;
+  const rightW    = CW - leftW - 14;
 
-  // "RYAVIEW RECOMMENDS" row
-  fg(...winColor); doc.setFontSize(6); doc.setFont('helvetica','bold');
-  doc.text('⬡  RYAVIEW RECOMMENDS', leftX, Y+8);
-  // "BEST OVERALL" badge
+  // ── "RYAVIEW RECOMMENDS" label (no special symbols — ASCII safe) ──
+  // Small filled circle bullet drawn as rect
+  bg(...winColor); doc.roundedRect(leftX, Y+5, 2.5, 2.5, 1.2, 1.2, 'F');
+  fg(...winColor); doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.text('RYAVIEW RECOMMENDS', leftX+4, Y+8);
+  const recW = doc.getTextWidth('RYAVIEW RECOMMENDS');
+
+  // "BEST OVERALL" badge — on same line, after label, no overlap
   const boLabel = 'BEST OVERALL';
-  const boW = doc.getTextWidth(boLabel) + 6;
-  bg(...winColor); doc.roundedRect(leftX + doc.getTextWidth('⬡  RYAVIEW RECOMMENDS') + 4, Y+3.5, boW, 5.5, 1, 1, 'F');
-  fg(13,17,23); doc.setFontSize(5.5); doc.setFont('helvetica','bold');
-  doc.text(boLabel, leftX + doc.getTextWidth('⬡  RYAVIEW RECOMMENDS') + 4 + boW/2, Y+7.5, { align:'center' });
+  doc.setFontSize(7); // set size first before measuring
+  const boW = doc.getTextWidth(boLabel) + 7;
+  const boX = leftX + 4 + recW + 5;
+  bg(...winColor); doc.roundedRect(boX, Y+3, boW, 6.5, 1.5, 1.5, 'F');
+  fg(10,14,22); doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+  doc.text(boLabel, boX + boW/2, Y+7.8, { align:'center' });
 
-  // Brand name + model
-  fg(237,244,252); doc.setFontSize(18); doc.setFont('helvetica','bold');
-  doc.text(winner.brand, leftX, Y+19);
+  // ── Brand name + Model — big and readable ──
+  fg(237,244,252); doc.setFontSize(22); doc.setFont('helvetica','bold');
+  doc.text(winner.brand, leftX, Y+21);
   const brandW = doc.getTextWidth(winner.brand);
-  fg(...winColor2); doc.setFontSize(18); doc.setFont('helvetica','bold');
-  doc.text('  ' + winner.model, leftX + brandW, Y+19);
+  fg(...winColor2); doc.setFontSize(22);
+  doc.text(' ' + winner.model, leftX + brandW, Y+21);
 
-  // Type · Resolution · Country
-  fg(107,133,168); doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.text((winner.type||'') + '  ·  ' + (winner.res||'') + '  ·  ' + (winner.country||''), leftX, Y+26);
+  // Type · Res · Country subtitle
+  fg(107,133,168); doc.setFontSize(8.5); doc.setFont('helvetica','normal');
+  doc.text((winner.type||'') + '  *  ' + (winner.res||'') + '  *  ' + (winner.country||''), leftX, Y+29);
 
-  // Thin divider
-  bg(40,60,100); doc.rect(leftX, Y+30, leftW-8, 0.3, 'F');
+  // Divider
+  bg(40,60,100); doc.rect(leftX, Y+33, leftW - 10, 0.3, 'F');
 
-  // AI Reasons — NO heading, just checkmarks (matching webpage)
+  // ── AI Reasons — checkmark drawn as small colored square, no heading ──
   if (reasons.length > 0) {
-    let ry = Y + 36;
+    let ry = Y + 40;
     reasons.slice(0, 3).forEach(r => {
-      fg(...winColor2); doc.setFontSize(7.5); doc.setFont('helvetica','bold');
-      doc.text('✓', leftX, ry);
-      fg(190,210,235); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-      const lines = doc.splitTextToSize(r, leftW - 16);
-      doc.text(lines, leftX + 6, ry);
-      ry += lines.length * 4.8 + 2;
+      // Draw tick mark as filled small square
+      bg(...winColor2); doc.roundedRect(leftX, ry-3, 2.8, 2.8, 0.8, 0.8, 'F');
+      fg(190,210,235); doc.setFontSize(8); doc.setFont('helvetica','normal');
+      const lines = doc.splitTextToSize(r, leftW - 18);
+      doc.text(lines, leftX + 5, ry);
+      ry += lines.length * 5.5 + 2;
     });
   } else {
-    fg(107,133,168); doc.setFontSize(6.5); doc.setFont('helvetica','italic');
-    doc.text('AI analysis will appear here after comparison runs.', leftX + 5, Y + 40);
+    fg(107,133,168); doc.setFontSize(8); doc.setFont('helvetica','italic');
+    doc.text('AI analysis will appear here after comparison runs.', leftX + 5, Y + 44);
   }
 
-  // ── USP PILLS (Axis only) — heading appears ONCE here, matches webpage ──
+  // ── USP PILLS (Axis only) ──
+  // "WHY AXIS WINS" heading appears ONCE — only here above pills, never above reasons
   if (isAxis) {
-    const uspLabels = ['PSIRT Team','AXIS OS','TPM 2.0 Secure Boot','Zero Government Ban Risk','5-Year Warranty','Open Ecosystem (70,000+ integrations)','Forensic WDR 120dB','Zipstream — Intelligent Compression'];
+    const uspLabels = ['PSIRT Team','AXIS OS','TPM 2.0 Secure Boot','Zero Govt Ban Risk','5-Year Warranty','70,000+ Integrations','Forensic WDR 120dB','Zipstream Compression'];
     let px = leftX;
-    let py = Y + CARD_H - 28;
-    // Thin divider above pills section
-    bg(40,60,100); doc.rect(leftX, py-5, leftW-8, 0.3, 'F');
-    // "WHY AXIS WINS" heading — appears only once, here, above pills
-    fg(79,142,247); doc.setFontSize(6); doc.setFont('helvetica','bold');
-    doc.text('WHY AXIS WINS BEYOND THE SPEC SHEET', leftX, py);
-    py += 5;
+    let py = Y + CARD_H - 30;
+    // Divider above pills
+    bg(40,60,100); doc.rect(leftX, py - 6, leftW - 10, 0.3, 'F');
+    // Heading — once only
+    fg(79,142,247); doc.setFontSize(7); doc.setFont('helvetica','bold');
+    doc.text('WHY AXIS WINS BEYOND THE SPEC SHEET', leftX, py - 1);
     uspLabels.forEach(lbl => {
-      doc.setFontSize(5.5);
+      doc.setFontSize(6.5);
       const tw = doc.getTextWidth(lbl);
-      const pillW = tw + 7;
-      if (px + pillW > leftX + leftW - 6) { px = leftX; py += 6.5; }
+      const pillW = tw + 8;
+      if (px + pillW > leftX + leftW - 8) { px = leftX; py += 8; }
       bg(20,36,68); doc.setDrawColor(50,90,170); doc.setLineWidth(0.3);
-      doc.roundedRect(px, py-3.5, pillW, 5, 1, 1, 'FD');
+      doc.roundedRect(px, py + 3, pillW, 6, 1.5, 1.5, 'FD');
       fg(100,155,235); doc.setFont('helvetica','normal');
-      doc.text(lbl, px + 3.5, py);
-      px += pillW + 3;
+      doc.text(lbl, px + 4, py + 7.5);
+      px += pillW + 4;
     });
   }
 
-  // ── RIGHT COLUMN (score + bars) ──
-  // Big score number — centred in right column
-  const scoreStr = String(winSc.total);
-  fg(...winColor); doc.setFontSize(44); doc.setFont('helvetica','bold');
-  doc.text(scoreStr, rightX + rightW/2, Y+28, { align:'center' });
-  fg(107,133,168); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-  doc.text('/ 108 TOTAL SCORE', rightX + rightW/2, Y+34, { align:'center' });
+  // ── RIGHT COLUMN — Score + Bars ──
+  // Big score
+  fg(...winColor); doc.setFontSize(52); doc.setFont('helvetica','bold');
+  doc.text(String(winSc.total), rightX + rightW/2, Y+30, { align:'center' });
+  fg(107,133,168); doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text('/ 108 TOTAL SCORE', rightX + rightW/2, Y+37, { align:'center' });
   if (isAxis) {
-    fg(...winColor2); doc.setFontSize(6); doc.setFont('helvetica','normal');
-    doc.text('incl. +' + winSc.trustBonus + ' trust index', rightX + rightW/2, Y+39, { align:'center' });
+    fg(...winColor2); doc.setFontSize(7.5);
+    doc.text('incl. +' + winSc.trustBonus + ' trust index', rightX + rightW/2, Y+44, { align:'center' });
   }
 
   // Score bars
@@ -2241,26 +2246,22 @@ function exportPDF() {
     { label:'Compression',  val:bkd.compress, max:10, color:[20,184,166]  },
     { label:'Trust Index',  val:bkd.trust,    max:8,  color:[249,115,22]  },
   ];
-  const barH   = 3.8;
-  const barGap = 7;
-  const barLW  = 26;
-  const barTrackW = rightW - barLW - 14;
+  const barH      = 4.5;
+  const barGap    = 8.5;
+  const barLW     = 30;
+  const barTrackW = rightW - barLW - 12;
   bars.forEach((b, i) => {
-    const bY = Y + 45 + i * barGap;
-    // Label
-    fg(144,174,206); doc.setFontSize(6); doc.setFont('helvetica','normal');
-    doc.text(b.label, rightX, bY + 2.8);
-    // Track bg
-    bg(31,45,69); doc.roundedRect(rightX + barLW, bY, barTrackW, barH, 1, 1, 'F');
-    // Fill
-    const fillW = Math.max(1.5, (b.val / b.max) * barTrackW);
-    bg(...b.color); doc.roundedRect(rightX + barLW, bY, fillW, barH, 1, 1, 'F');
-    // Score text
-    fg(205,218,235); doc.setFontSize(6); doc.setFont('helvetica','bold');
-    doc.text(b.val + '/' + b.max, rightX + rightW - 2, bY + 2.8, { align:'right' });
+    const bY = Y + 52 + i * barGap;
+    fg(144,174,206); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+    doc.text(b.label, rightX, bY + 3.2);
+    bg(31,45,69); doc.roundedRect(rightX + barLW, bY, barTrackW, barH, 1.2, 1.2, 'F');
+    const fillW = Math.max(2, (b.val / b.max) * barTrackW);
+    bg(...b.color); doc.roundedRect(rightX + barLW, bY, fillW, barH, 1.2, 1.2, 'F');
+    fg(205,218,235); doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+    doc.text(b.val + '/' + b.max, rightX + rightW, bY + 3.2, { align:'right' });
   });
 
-  Y += CARD_H + 6;
+  Y += CARD_H + 8;
 
   // ── COMPARISON TABLE ──
   const getScore = (cam) => scored.find(s => s.cam === cam)?.score;
@@ -2311,13 +2312,13 @@ function exportPDF() {
     startY: Y,
     margin: { left: ML, right: MR },
     styles: {
-      fontSize: 6.8, cellPadding: 3.5, font: 'helvetica',
+      fontSize: 8, cellPadding: 4, font: 'helvetica',
       textColor: [168,189,212], fillColor: [22,27,39],
-      lineColor: [31,45,69], lineWidth: 0.25, overflow: 'linebreak', minCellHeight: 8
+      lineColor: [31,45,69], lineWidth: 0.25, overflow: 'linebreak', minCellHeight: 10
     },
-    headStyles: { fillColor: [17,21,32], textColor: [220,232,244], fontSize: 7.5, fontStyle: 'bold', halign: 'center', minCellHeight: 16 },
+    headStyles: { fillColor: [17,21,32], textColor: [220,232,244], fontSize: 9, fontStyle: 'bold', halign: 'center', minCellHeight: 18 },
     alternateRowStyles: { fillColor: [23,29,46] },
-    columnStyles: { 0: { fillColor:[17,21,32], textColor:[107,133,168], fontStyle:'bold', cellWidth:35, fontSize:6.5 } },
+    columnStyles: { 0: { fillColor:[17,21,32], textColor:[107,133,168], fontStyle:'bold', cellWidth:38, fontSize:7.5 } },
     didParseCell: function(data) {
       if (data.section === 'body' && data.column.index > 0) {
         const ci  = data.column.index - 1;
