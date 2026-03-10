@@ -1820,6 +1820,8 @@ function runCompare() {
   scored.sort((a,b) => b.score.total - a.score.total);
   let winner     = scored[0].cam;
   let winnerScore= scored[0].score;
+  // Store globally so PDF export always uses the same winner shown on screen
+  window._cmpWinner = winner; window._cmpWinnerScore = winnerScore; window._cmpCams = cams; window._cmpScored = scored;
 
   // ── Render winner card (AI reasons load async below) ──
   const wc = document.getElementById('winner-card');
@@ -2032,6 +2034,7 @@ STRICT RULES — every rule is mandatory:
           // AI has overridden the spec winner based on client context
           winner = aiWinnerCam;
           winnerScore = scored.find(s => s.cam === aiWinnerCam)?.score || winnerScore;
+          window._cmpWinner = winner; window._cmpWinnerScore = winnerScore;
           const wc = document.getElementById('winner-card');
           wc.innerHTML = buildWinnerCard(winner, winnerScore, cams, ai.winner.reasons);
         } else {
@@ -2067,19 +2070,13 @@ function exportPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a3' });
 
-  const cams = [];
-  for (let i=1;i<=5;i++) {
-    const bv = document.getElementById('b'+i).value;
-    const mv = document.getElementById('m'+i).value;
-    if (bv && mv) { const mk=mv.split('|')[0]; cams.push(getCamSpec(bv,mk)); }
-  }
-  if (!cams.length) { alert('Run Compare first.'); return; }
-
-  const scored  = cams.map(c=>({ cam:c, score:scoreCamera(c,cams,getClientMode()) }));
-  scored.sort((a,b)=>b.score.total-a.score.total);
-  const winner  = scored[0].cam;
-  const winSc   = scored[0].score;
-  const isAxis  = winner.brand === 'Axis';
+  // Use the winner that was shown on screen (including AI override)
+  if (!window._cmpWinner) { alert('Run Compare first.'); return; }
+  const cams   = window._cmpCams;
+  const scored = window._cmpScored;
+  const winner = window._cmpWinner;
+  const winSc  = window._cmpWinnerScore;
+  const isAxis = winner.brand === 'Axis';
 
   const now     = new Date();
   const dateStr = now.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
@@ -2088,11 +2085,28 @@ function exportPDF() {
   doc.setFillColor(13,17,23); doc.rect(0,0,420,297,'F');
   doc.setFillColor(79,142,247); doc.rect(0,0,420,1,'F');
 
-  // Logo
-  doc.setTextColor(122,173,250); doc.setFontSize(18); doc.setFont('helvetica','bold');
-  doc.text('ryaview.ai',14,14);
-  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(107,133,168);
-  doc.text('CAMERA INTELLIGENCE PLATFORM  ·  INTERNAL USE ONLY',14,20);
+  // Logo — ā mark circle + ryaview.ai wordmark
+  // Gold circle for ā mark
+  doc.setFillColor(232,168,32);
+  doc.circle(18, 12, 5, 'F');
+  // Dark background circle
+  doc.setFillColor(13,17,23);
+  doc.circle(18, 12, 4, 'F');
+  // ā text in circle
+  doc.setTextColor(220,232,244); doc.setFontSize(8); doc.setFont('helvetica','bolditalic');
+  doc.text('a', 18, 14.5, { align:'center' });
+  // Gold brushstroke bar above .ai
+  doc.setFillColor(232,168,32);
+  doc.roundedRect(46, 7.5, 13, 1.5, 0.5, 0.5, 'F');
+  // ryaview text
+  doc.setTextColor(220,232,244); doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('ryaview', 26, 15);
+  // .ai in gold
+  doc.setTextColor(232,168,32); doc.setFontSize(16);
+  doc.text('.ai', 47, 15);
+  // Subtitle
+  doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(107,133,168);
+  doc.text('CAMERA INTELLIGENCE PLATFORM  ·  INTERNAL USE ONLY', 26, 20);
 
   // Title
   doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(220,232,244);
@@ -2652,18 +2666,19 @@ function boqPDFDoc(brand, rows, meta, isAlt) {
   doc.setTextColor(200,215,235); doc.setFontSize(8);
   doc.text(dateStr, 140, mY+24.5);
 
-  // Table
-  const filled = rows.filter(r => r.price > 0);
+  // Table — use effectivePrice (respects user-edited prices)
+  const ep = r => r.customPrice != null ? r.customPrice : r.price;
+  const filled = rows.filter(r => ep(r) > 0);
   const tableRows = filled.map((r,i) => [
     String(i+1).padStart(2,'0'),
     r.model,
     r.type,
     r.res,
-    inrFull(r.price),
+    inrFull(ep(r)),
     String(r.qty),
-    inrFull(r.price * r.qty)
+    inrFull(ep(r) * r.qty)
   ]);
-  const grandTotal = filled.reduce((s,r) => s + r.price*r.qty, 0);
+  const grandTotal = filled.reduce((s,r) => s + ep(r)*r.qty, 0);
   tableRows.push(['','','','','Grand Total','', inrFull(grandTotal)]);
 
   doc.autoTable({
@@ -2720,8 +2735,9 @@ function exportAltPDF() {
 ───────────────────────────────────── */
 function buildBoqSheet(brand, rows, meta, isAlt) {
   const wb = XLSX.utils.book_new();
-  const filled = rows.filter(r => r.price > 0);
-  const grandTotal = filled.reduce((s,r) => s + r.price*r.qty, 0);
+  const filled = rows.filter(r => (r.customPrice != null ? r.customPrice : r.price) > 0);
+  const ep = r => r.customPrice != null ? r.customPrice : r.price;
+  const grandTotal = filled.reduce((s,r) => s + ep(r)*r.qty, 0);
   const dateStr = new Date(meta.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
 
   const sheetData = [
@@ -2733,9 +2749,9 @@ function buildBoqSheet(brand, rows, meta, isAlt) {
     ['Prepared By:', meta.by, '', 'Date:', dateStr],
     [],
     ['#','Model No.','Camera Type','Resolution','Unit Price (INR)','Qty','Total (INR)'],
-    ...filled.map((r,i) => [i+1, r.model, r.type, r.res, r.price, r.qty, r.price*r.qty]),
+    ...filled.map((r,i) => [i+1, r.model, r.type, r.res, ep(r), r.qty, ep(r)*r.qty]),
     [],
-    ['','','','','Grand Total','', grandTotal],
+    ['','','','','GRAND TOTAL (INR)','', grandTotal],
     [],
     ['⚠ Disclaimer: All prices are indicative only — exclusive of GST, customs duties, freight and installation.'],
     ['Confirm with authorised distributor before formal quotation.'],
