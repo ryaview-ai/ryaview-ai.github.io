@@ -1108,20 +1108,30 @@ async function fetchForex() {
 // Fetch on page load after auth
 window.addEventListener('DOMContentLoaded', () => {
   setTimeout(fetchForex, 1000);
-  // ── Restore session on refresh ──
-  _sb.auth.getSession().then(({ data }) => {
-    if (data?.session?.user) {
-      _currentUser = data.session.user;
-      onAuthSuccess(data.session.user);
-    }
-  });
+  // ── Restore session on refresh only if tab-alive flag exists ──
+  // sessionStorage clears on tab close but survives refresh — perfect for our needs
+  if (sessionStorage.getItem('ryaview_tab_alive')) {
+    _sb.auth.getSession().then(({ data }) => {
+      if (data?.session?.user) {
+        _currentUser = data.session.user;
+        onAuthSuccess(data.session.user);
+      } else {
+        // Session expired — clear flag, show login
+        sessionStorage.removeItem('ryaview_tab_alive');
+      }
+    });
+  } else {
+    // No tab flag = new tab or tab was closed — force sign out and show login
+    _sb.auth.signOut().then(() => {
+      document.getElementById('auth-overlay').style.display = 'flex';
+    });
+  }
 });
 const SESSION_MINS  = 30;  // 30 min inactivity auto-logout
 
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
   auth: {
-    persistSession: true,
-    storage: window.sessionStorage,  // survives page refresh, dies when tab is closed
+    persistSession: true,       // store in localStorage
     autoRefreshToken: true,
     detectSessionInUrl: true
   }
@@ -1287,7 +1297,8 @@ async function doLogin() {
     // ── Success ──
     clearAttempts(email);
     _currentUser = data.user;
-    try { await logEvent(data.user, 'login'); } catch(e) {}  // don't block on log failure
+    sessionStorage.setItem('ryaview_tab_alive', '1'); // tab-alive flag
+    try { await logEvent(data.user, 'login'); } catch(e) {}
     onAuthSuccess(data.user);
 
   } catch(err) {
@@ -1303,6 +1314,7 @@ async function doLogin() {
 /* ── LOGOUT ── */
 async function doLogout() {
   clearSessionTimers();
+  sessionStorage.removeItem('ryaview_tab_alive');
   await _sb.auth.signOut();
   _currentUser = null;
   document.getElementById('auth-overlay').style.display = 'flex';
