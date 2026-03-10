@@ -2106,30 +2106,27 @@ function exportPDF() {
   // Blue accent line top
   bg(79,142,247); doc.rect(0,0,PW,1.2,'F');
 
-  // ── LOGO ──
-  // Gold outer ring
-  bg(232,168,32); doc.roundedRect(12, 7, 13, 13, 6.5, 6.5, 'F');
-  // Dark inner circle
-  bg(13,17,23); doc.roundedRect(13.3, 8.3, 10.4, 10.4, 5.2, 5.2, 'F');
-  // Gold brushstroke across top
-  bg(232,168,32); doc.roundedRect(12, 7, 13, 2.2, 0.8, 0.8, 'F');
-  // ā text
-  fg(220,232,244); doc.setFontSize(9); doc.setFont('helvetica','bolditalic');
-  doc.text('a', 18.5, 15.5, { align:'center' });
-  // Divider
-  bg(50,70,100); doc.rect(27.5, 8, 0.4, 12, 'F');
-  // ryaview text
-  fg(237,244,252); doc.setFontSize(17); doc.setFont('helvetica','bold');
-  doc.text('ryaview', 30, 17);
-  // Gold brushstroke above .ai
+  // ── LOGO — matches webpage exactly: gold brushstroke above italic 'a', no circle ──
+  // Gold brushstroke (the ā diacritic mark — a curved stroke above the letter)
+  bg(232,168,32); doc.roundedRect(12, 7, 14, 2.5, 1.2, 1.2, 'F');
+  // italic 'a' below the brushstroke
+  fg(220,232,244); doc.setFontSize(12); doc.setFont('helvetica','bolditalic');
+  doc.text('a', 19, 18, { align:'center' });
+  // Vertical divider
+  bg(50,70,100); doc.rect(28.5, 7, 0.4, 12, 'F');
+  // "ryaview" white bold
+  fg(237,244,252); doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text('ryaview', 31, 17);
+  // Measure ryaview width for .ai placement
   const rww = doc.getTextWidth('ryaview');
-  bg(232,168,32); doc.roundedRect(30+rww, 8.5, 14, 2, 0.8, 0.8, 'F');
-  // .ai in gold
-  fg(232,168,32); doc.setFontSize(17); doc.setFont('helvetica','bold');
-  doc.text('.ai', 30+rww, 17);
+  // Gold brushstroke bar above .ai — matches webpage SVG
+  bg(232,168,32); doc.roundedRect(31+rww, 7.5, 13, 2.2, 0.8, 0.8, 'F');
+  // ".ai" in gold
+  fg(232,168,32); doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text('.ai', 31+rww, 17);
   // Subtitle
   fg(144,174,206); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-  doc.text('CAMERA INTELLIGENCE  ·  INTERNAL', 30, 21.5);
+  doc.text('CAMERA INTELLIGENCE  ·  INTERNAL', 31, 22);
 
   // Report title right side
   fg(237,244,252); doc.setFontSize(10); doc.setFont('helvetica','bold');
@@ -2181,44 +2178,42 @@ function exportPDF() {
   // Thin divider
   bg(40,60,100); doc.rect(leftX, Y+30, leftW-8, 0.3, 'F');
 
-  // "WHY ... WINS BEYOND THE SPEC SHEET" heading
-  fg(...winColor); doc.setFontSize(6); doc.setFont('helvetica','bold');
-  doc.text('WHY ' + winner.brand.toUpperCase() + ' WINS BEYOND THE SPEC SHEET', leftX, Y+36);
-
-  // AI Reasons — wrap long text properly
+  // AI Reasons — NO heading, just checkmarks (matching webpage)
   if (reasons.length > 0) {
-    let ry = Y + 42;
+    let ry = Y + 36;
     reasons.slice(0, 3).forEach(r => {
-      fg(...winColor2); doc.setFontSize(7); doc.setFont('helvetica','bold');
+      fg(...winColor2); doc.setFontSize(7.5); doc.setFont('helvetica','bold');
       doc.text('✓', leftX, ry);
       fg(190,210,235); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
       const lines = doc.splitTextToSize(r, leftW - 16);
-      doc.text(lines, leftX + 5, ry);
-      ry += lines.length * 4.5 + 2.5;
+      doc.text(lines, leftX + 6, ry);
+      ry += lines.length * 4.8 + 2;
     });
   } else {
     fg(107,133,168); doc.setFontSize(6.5); doc.setFont('helvetica','italic');
-    doc.text('AI analysis will appear here after comparison runs.', leftX + 5, Y + 45);
+    doc.text('AI analysis will appear here after comparison runs.', leftX + 5, Y + 40);
   }
 
-  // ── USP PILLS (Axis only) ──
+  // ── USP PILLS (Axis only) — heading appears ONCE here, matches webpage ──
   if (isAxis) {
-    const uspLabels = ['PSIRT Team','AXIS OS','TPM 2.0 Secure Boot','Zero Govt Ban Risk','5-Year Warranty','70K+ Integrations','Forensic WDR 120dB','Zipstream Compression'];
-    let px = leftX, py = Y + CARD_H - 22;
-    // Section heading
-    bg(25,40,70); doc.roundedRect(leftX, py-5, leftW-8, 0.3, 0, 0, 'F');
-    fg(79,142,247); doc.setFontSize(5.5); doc.setFont('helvetica','bold');
-    doc.text('WHY AXIS WINS BEYOND THE SPEC SHEET  ·  VERIFIED ADVANTAGES', leftX, py+1);
+    const uspLabels = ['PSIRT Team','AXIS OS','TPM 2.0 Secure Boot','Zero Government Ban Risk','5-Year Warranty','Open Ecosystem (70,000+ integrations)','Forensic WDR 120dB','Zipstream — Intelligent Compression'];
+    let px = leftX;
+    let py = Y + CARD_H - 28;
+    // Thin divider above pills section
+    bg(40,60,100); doc.rect(leftX, py-5, leftW-8, 0.3, 'F');
+    // "WHY AXIS WINS" heading — appears only once, here, above pills
+    fg(79,142,247); doc.setFontSize(6); doc.setFont('helvetica','bold');
+    doc.text('WHY AXIS WINS BEYOND THE SPEC SHEET', leftX, py);
     py += 5;
     uspLabels.forEach(lbl => {
+      doc.setFontSize(5.5);
       const tw = doc.getTextWidth(lbl);
-      const pillW = tw + 8;
-      // Wrap to next line if overflows
-      if (px + pillW > leftX + leftW - 8) { px = leftX; py += 7; }
-      bg(20,36,68); doc.setDrawColor(60,100,180); doc.setLineWidth(0.3);
-      doc.roundedRect(px, py-4, pillW, 5.5, 1, 1, 'FD');
-      fg(100,160,240); doc.setFontSize(5.5); doc.setFont('helvetica','normal');
-      doc.text(lbl, px + 4, py);
+      const pillW = tw + 7;
+      if (px + pillW > leftX + leftW - 6) { px = leftX; py += 6.5; }
+      bg(20,36,68); doc.setDrawColor(50,90,170); doc.setLineWidth(0.3);
+      doc.roundedRect(px, py-3.5, pillW, 5, 1, 1, 'FD');
+      fg(100,155,235); doc.setFont('helvetica','normal');
+      doc.text(lbl, px + 3.5, py);
       px += pillW + 3;
     });
   }
@@ -2800,19 +2795,12 @@ function boqPDFDoc(brand, rows, meta, isAlt) {
   // Blue accent line
   doc.setFillColor(79,142,247); doc.rect(0,0,PW,1.2,'F');
 
-  // ── LOGO ──
-  // Gold outer ring (circle approximated as rounded rect)
+  // ── LOGO — gold brushstroke above italic 'a', no circle (matches webpage) ──
   doc.setFillColor(232,168,32);
-  doc.roundedRect(13, 7, 12, 12, 6, 6, 'F');
-  // Dark inner circle
-  doc.setFillColor(13,17,23);
-  doc.roundedRect(14.2, 8.2, 9.6, 9.6, 4.8, 4.8, 'F');
-  // Gold brushstroke bar at top of circle
-  doc.setFillColor(232,168,32);
-  doc.roundedRect(14, 7, 12, 2, 0.5, 0.5, 'F');
-  // 'a' text in circle
-  doc.setTextColor(220,232,244); doc.setFontSize(8); doc.setFont('helvetica','bolditalic');
-  doc.text('a', 19, 14.5, { align:'center' });
+  doc.roundedRect(13, 7, 12, 2.2, 1, 1, 'F');
+  // italic 'a'
+  doc.setTextColor(220,232,244); doc.setFontSize(11); doc.setFont('helvetica','bolditalic');
+  doc.text('a', 19, 17, { align:'center' });
   // Vertical divider
   doc.setFillColor(50,70,100); doc.rect(27.5, 7.5, 0.4, 11, 'F');
   // ryaview
