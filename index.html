@@ -3612,11 +3612,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Method 1 — window outer vs inner size (most reliable)
-  const THRESHOLD = 160;
+  const THRESHOLD = 200;  // raised to avoid false positives on mobile/small screens
   function checkDevToolsSize() {
     const widthDiff  = window.outerWidth  - window.innerWidth;
     const heightDiff = window.outerHeight - window.innerHeight;
-    return widthDiff > THRESHOLD || heightDiff > THRESHOLD;
+    // Require BOTH dimensions to be large — prevents false triggers from browser scrollbars/chrome
+    return widthDiff > THRESHOLD && heightDiff > THRESHOLD;
   }
 
   // Poll every 1.5 seconds (window size method only — reliable, no side effects)
