@@ -1106,13 +1106,23 @@ async function fetchForex() {
 }
 
 // Fetch on page load after auth
-window.addEventListener('DOMContentLoaded', () => setTimeout(fetchForex, 1000));
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(fetchForex, 1000);
+  // ── Restore session on refresh ──
+  _sb.auth.getSession().then(({ data }) => {
+    if (data?.session?.user) {
+      _currentUser = data.session.user;
+      onAuthSuccess(data.session.user);
+    }
+  });
+});
 const SESSION_MINS  = 30;  // 30 min inactivity auto-logout
 
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
   auth: {
-    persistSession: false,   // session lives in memory only — closing tab = logged out
-    autoRefreshToken: true,  // keep token alive during active session
+    persistSession: true,
+    storage: window.sessionStorage,  // survives page refresh, dies when tab is closed
+    autoRefreshToken: true,
     detectSessionInUrl: true
   }
 });
@@ -1364,16 +1374,8 @@ function clearSessionTimers() {
   document.addEventListener(ev, () => { if (_currentUser) startSessionTimer(); }, { passive:true })
 );
 
-// ── Sign out when tab/window is closed ──
-window.addEventListener('beforeunload', () => {
-  if (_currentUser) {
-    // Best-effort synchronous signout on close
-    // navigator.sendBeacon is fire-and-forget — more reliable than fetch on unload
-    const url = 'https://ssytbjfhjuhgnvgdvgkh.supabase.co/auth/v1/logout';
-    navigator.sendBeacon(url, JSON.stringify({}));
-    _sb.auth.signOut();  // also call async (may not complete but attempts it)
-  }
-});
+// ── Tab close = logout handled automatically via sessionStorage ──
+// sessionStorage is cleared by browser when tab is closed, so no manual signout needed
 
 // ── Sign out if tab is hidden for more than 30 mins ──
 let _hiddenTimer = null;
@@ -2099,32 +2101,29 @@ function exportPDF() {
   bg(79,142,247); doc.rect(0,0,PW,1.2,'F');
 
   // ── LOGO ──
-  // Gold brushstroke oval behind ā
-  bg(232,168,32);
-  doc.ellipse(18, 9.5, 5.5, 1.8, 'F');
-  // Dark circle for ā
-  bg(13,17,23);
-  doc.circle(18, 13, 5.5, 'F');
-  // Thin gold ring
-  ln(232,168,32); doc.setLineWidth(0.8);
-  doc.circle(18, 13, 5.5, 'S');
+  // Gold outer ring
+  bg(232,168,32); doc.roundedRect(12, 7, 13, 13, 6.5, 6.5, 'F');
+  // Dark inner circle
+  bg(13,17,23); doc.roundedRect(13.3, 8.3, 10.4, 10.4, 5.2, 5.2, 'F');
+  // Gold brushstroke across top
+  bg(232,168,32); doc.roundedRect(12, 7, 13, 2.2, 0.8, 0.8, 'F');
   // ā text
   fg(220,232,244); doc.setFontSize(9); doc.setFont('helvetica','bolditalic');
-  doc.text('a', 18, 15.5, { align:'center' });
+  doc.text('a', 18.5, 15.5, { align:'center' });
   // Divider
-  bg(50,70,100); doc.rect(26.5, 8, 0.4, 12, 'F');
+  bg(50,70,100); doc.rect(27.5, 8, 0.4, 12, 'F');
   // ryaview text
   fg(237,244,252); doc.setFontSize(17); doc.setFont('helvetica','bold');
-  doc.text('ryaview', 29, 17);
+  doc.text('ryaview', 30, 17);
   // Gold brushstroke above .ai
   const rww = doc.getTextWidth('ryaview');
-  bg(232,168,32); doc.roundedRect(29+rww, 8.5, 14, 2, 0.8, 0.8, 'F');
-  // .ai in gold gradient simulation
+  bg(232,168,32); doc.roundedRect(30+rww, 8.5, 14, 2, 0.8, 0.8, 'F');
+  // .ai in gold
   fg(232,168,32); doc.setFontSize(17); doc.setFont('helvetica','bold');
-  doc.text('.ai', 29+rww, 17);
+  doc.text('.ai', 30+rww, 17);
   // Subtitle
   fg(144,174,206); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-  doc.text('CAMERA INTELLIGENCE  ·  INTERNAL', 29, 21.5);
+  doc.text('CAMERA INTELLIGENCE  ·  INTERNAL', 30, 21.5);
 
   // Report title right side
   fg(237,244,252); doc.setFontSize(10); doc.setFont('helvetica','bold');
@@ -2236,8 +2235,8 @@ function exportPDF() {
     ['Ryaview Score',   ...cams.map(c => getScore(c).total + ' / 108 TOTAL')],
     ['Resolution',      ...cams.map(c => c.res || '—')],
     ['Country of Mfr.', ...cams.map(c => c.country || '—')],
-    ['Low Light',       ...cams.map(c => '★'.repeat(c.lowLight) + '☆'.repeat(5-c.lowLight) + '  (' + c.lowLight + '/5)')],
-    ['Unit Price (INR)',...cams.map(c => c.price ? '₹ ' + c.price.toLocaleString('en-IN') : '—')],
+    ['Low Light',       ...cams.map(c => ('●'.repeat(c.lowLight) + '○'.repeat(5-c.lowLight)) + '  (' + c.lowLight + '/5)')],
+    ['Unit Price (INR)',...cams.map(c => c.price ? pdfInr(c.price) : '—')],
     ['Warranty',        ...cams.map(c => c.warranty + ' Years  —  ' + (c.warrantyType||''))],
     ['Compression',     ...cams.map(c => (c.codecs||[]).join(', ') + '
 ' + (c.saving||''))],
@@ -2716,6 +2715,14 @@ function getProjMeta() {
   };
 }
 
+/* PDF-safe currency formatter (jsPDF cannot render ₹ symbol) */
+function pdfInr(n) {
+  if (!n || n <= 0) return '—';
+  if (n >= 1e7) return 'Rs. ' + (n/1e7).toFixed(2) + ' Cr';
+  if (n >= 1e5) return 'Rs. ' + (n/1e5).toFixed(2) + ' L';
+  return 'Rs. ' + n.toLocaleString('en-IN');
+}
+
 /* ─────────────────────────────────────
    BOQ PDF EXPORT (main + alt)
 ───────────────────────────────────── */
@@ -2730,21 +2737,21 @@ function boqPDFDoc(brand, rows, meta, isAlt) {
   // Blue accent line
   doc.setFillColor(79,142,247); doc.rect(0,0,PW,1.2,'F');
 
-  // ── LOGO (matches webpage exactly) ──
-  // Gold brushstroke oval behind ā
+  // ── LOGO ──
+  // Gold outer ring (circle approximated as rounded rect)
   doc.setFillColor(232,168,32);
-  doc.ellipse(19, 9, 5, 1.6, 'F');
-  // Dark circle for ā mark
+  doc.roundedRect(13, 7, 12, 12, 6, 6, 'F');
+  // Dark inner circle
   doc.setFillColor(13,17,23);
-  doc.circle(19, 12.5, 5, 'F');
-  // Gold ring
-  doc.setDrawColor(232,168,32); doc.setLineWidth(0.7);
-  doc.circle(19, 12.5, 5, 'S');
-  // ā text
-  doc.setTextColor(220,232,244); doc.setFontSize(8.5); doc.setFont('helvetica','bolditalic');
-  doc.text('a', 19, 14.8, { align:'center' });
+  doc.roundedRect(14.2, 8.2, 9.6, 9.6, 4.8, 4.8, 'F');
+  // Gold brushstroke bar at top of circle
+  doc.setFillColor(232,168,32);
+  doc.roundedRect(14, 7, 12, 2, 0.5, 0.5, 'F');
+  // 'a' text in circle
+  doc.setTextColor(220,232,244); doc.setFontSize(8); doc.setFont('helvetica','bolditalic');
+  doc.text('a', 19, 14.5, { align:'center' });
   // Vertical divider
-  doc.setFillColor(50,70,100); doc.rect(27, 7.5, 0.4, 11, 'F');
+  doc.setFillColor(50,70,100); doc.rect(27.5, 7.5, 0.4, 11, 'F');
   // ryaview
   doc.setTextColor(237,244,252); doc.setFontSize(15); doc.setFont('helvetica','bold');
   doc.text('ryaview', 30, 16);
@@ -2813,9 +2820,9 @@ function boqPDFDoc(brand, rows, meta, isAlt) {
     r.model,
     r.type,
     r.res,
-    '₹ ' + ep(r).toLocaleString('en-IN'),
+    pdfInr(ep(r)),
     String(r.qty),
-    '₹ ' + (ep(r)*r.qty).toLocaleString('en-IN')
+    pdfInr(ep(r)*r.qty)
   ]);
 
   // Grand total row
@@ -2842,7 +2849,7 @@ function boqPDFDoc(brand, rows, meta, isAlt) {
     },
     alternateRowStyles: { fillColor: [23,29,46] },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center', textColor: [107,133,168] },
+      0: { cellWidth: 12, halign: 'center', textColor: [107,133,168] },
       1: { cellWidth: 42, fontStyle: 'bold', textColor: [205,220,240] },
       2: { cellWidth: 28 },
       3: { cellWidth: 22, halign: 'center' },
