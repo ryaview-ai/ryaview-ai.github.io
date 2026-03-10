@@ -1108,24 +1108,18 @@ async function fetchForex() {
 // Fetch on page load after auth
 window.addEventListener('DOMContentLoaded', () => {
   setTimeout(fetchForex, 1000);
-  // ── Restore session on refresh only if tab-alive flag exists ──
-  // sessionStorage clears on tab close but survives refresh — perfect for our needs
+  // Restore session on refresh if tab-alive flag is set
   if (sessionStorage.getItem('ryaview_tab_alive')) {
     _sb.auth.getSession().then(({ data }) => {
       if (data?.session?.user) {
         _currentUser = data.session.user;
         onAuthSuccess(data.session.user);
       } else {
-        // Session expired — clear flag, show login
         sessionStorage.removeItem('ryaview_tab_alive');
       }
     });
-  } else {
-    // No tab flag = new tab or tab was closed — force sign out and show login
-    _sb.auth.signOut().then(() => {
-      document.getElementById('auth-overlay').style.display = 'flex';
-    });
   }
+  // No signOut call here — just show login screen (already shown by default)
 });
 const SESSION_MINS  = 30;  // 30 min inactivity auto-logout
 
