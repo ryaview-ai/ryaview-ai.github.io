@@ -2215,9 +2215,7 @@ function exportPDF() {
       const sc = getScore(c);
       const isW = c === winner;
       return {
-        content: c.brand + '
-' + c.model + '
-' + sc.total + '/108',
+        content: c.brand + '\n' + c.model + '\n' + sc.total + '/108',
         styles: {
           fillColor: isW ? [17,27,50] : [17,21,32],
           textColor: isW ? [122,173,250] : [220,232,244],
@@ -2244,11 +2242,9 @@ function exportPDF() {
     ['Low Light',       ...cams.map(c => ('●'.repeat(c.lowLight) + '○'.repeat(5-c.lowLight)) + '  (' + c.lowLight + '/5)')],
     ['Unit Price (INR)',...cams.map(c => c.price ? pdfInr(c.price) : '—')],
     ['Warranty',        ...cams.map(c => c.warranty + ' Years  —  ' + (c.warrantyType||''))],
-    ['Compression',     ...cams.map(c => (c.codecs||[]).join(', ') + '
-' + (c.saving||''))],
+    ['Compression',     ...cams.map(c => (c.codecs||[]).join(', ') + '\n' + (c.saving||''))],
     ['Storage / hr',    ...cams.map(c => (c.storageBase||'—') + ' GB/hr')],
-    ['Trust Index',     ...cams.map(c => { const sc=getScore(c); return (c.cybersecurity||c.brand+' platform') + '
-Trust: ' + sc.breakdown.trust + '/8'; })],
+    ['Trust Index',     ...cams.map(c => { const sc=getScore(c); return (c.cybersecurity||c.brand+' platform') + '\nTrust: ' + sc.breakdown.trust + '/8'; })],
     ['AI Analytics',    ...cams.map(c => (c.ai||[]).join(', ') || '—')],
     ['AI Verdict',      ...cams.map(c => getVerdict(c))],
   ];
