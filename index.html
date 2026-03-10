@@ -1,0 +1,3452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ryaview.ai — Camera Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #0b0e14;
+  --s1:     #131825;
+  --s2:     #1a2235;
+  --s3:     #1e2638;
+  --line:   #243354;
+  --line2:  #263352;
+  --blue:   #4f8ef7;
+  --blue2:  #7aadfa;
+  --bluebg: rgba(79,142,247,0.07);
+  --money:  #00c853;
+  --moneybg:rgba(0,200,83,0.07);
+  --dim:    #6080a8;
+  --mid:    #90aece;
+  --body:   #cddaeb;
+  --head:   #edf4fc;
+  --f:     'Manrope', sans-serif;
+  --fm:    'Fira Code', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
+html { scroll-behavior: smooth }
+body { font-family: var(--f); background: var(--bg); color: var(--body); font-size: 13.5px; line-height: 1.55; overflow-x: hidden }
+
+/* Ambient */
+body::before { content: ''; position: fixed; top: -250px; left: 50%; transform: translateX(-50%); width: 800px; height: 500px; background: radial-gradient(ellipse, rgba(79,142,247,0.04) 0%, transparent 70%); pointer-events: none; z-index: 0 }
+#shell { position: relative; z-index: 1 }
+
+/* ─── HEADER ─── */
+header {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(11,14,20,0.95); backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--line);
+  padding: 0 48px; height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.logo { display: flex; align-items: center; gap: 12px }
+/* ── LOGO — Aarya mark + ryaview wordmark ── */
+.logo-icon {
+  width: 30px; height: 30px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.logo-divider { width: 1px; height: 20px; background: var(--line); margin: 0 2px; flex-shrink: 0; }
+.logo-text { font-size: 16px; font-weight: 700; color: var(--head); letter-spacing: -0.03em; display: inline-flex; align-items: baseline; gap: 0 }
+.logo-text em { color: var(--head); font-style: normal }
+
+/* .ai wrapper — holds brushstroke + text */
+.ai-wrap { position: relative; display: inline-block; line-height: 1; padding-top: 7px; vertical-align: bottom; }
+.ai-brushstroke {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 8px;
+  pointer-events: none;
+  animation: gold-breathe 3.5s ease-in-out infinite;
+}
+.ai-label {
+  background: linear-gradient(90deg, #c8820e 0%, #e8a820 45%, #f5d060 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  font-weight: 700;
+  animation: gold-breathe 3.5s ease-in-out infinite;
+}
+@keyframes gold-breathe {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(232,168,32,0.2)); }
+  50%       { filter: drop-shadow(0 0 10px rgba(245,208,96,0.6)); }
+}
+.logo-sub { font-size: 8.5px; color: var(--mid); font-family: var(--fm); letter-spacing: 0.16em; text-transform: uppercase; margin-top: 3px; line-height: 1 }
+.hright { display: flex; align-items: center; gap: 8px }
+.pill { display: flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 100px; font-size: 10px; font-family: var(--fm); letter-spacing: 0.04em }
+.pill-user { background: var(--bluebg); border: 1px solid rgba(79,142,247,0.18); color: var(--blue2) }
+.pill-live { background: rgba(0,200,83,0.06); border: 1px solid rgba(0,200,83,0.2); color: var(--money) }
+.pill-live .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--money); animation: pulse 2.5s ease infinite }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.tag-soft { padding: 3px 9px; border: 1px solid var(--line2); border-radius: 4px; font-size: 9px; font-family: var(--fm); color: var(--mid); letter-spacing: 0.1em }
+.btn-signout { background: none; border: 1px solid var(--line); color: var(--dim); font-size: 10px; font-family: var(--fm); padding: 4px 10px; border-radius: 5px; cursor: pointer; transition: all .18s; letter-spacing: 0.04em }
+.btn-signout:hover { border-color: #f43f5e44; color: #f43f5e }
+
+/* ─── DEMO STRIP ─── */
+
+
+/* ─── NAV ─── */
+.nav { display: flex; padding: 0 48px; background: var(--bg); border-bottom: 1px solid var(--line); position: sticky; top: 56px; z-index: 100 }
+.nt { display: flex; align-items: center; gap: 7px; padding: 13px 18px; font-size: 12px; font-weight: 500; color: var(--mid); cursor: pointer; border-bottom: 2px solid transparent; transition: all .18s; letter-spacing: 0.01em }
+.nt:hover { color: var(--body) }
+.nt.on { color: var(--blue2); border-bottom-color: var(--blue) }
+.nt svg { opacity: 0.7 }
+.nt.on svg { opacity: 1 }
+.nc { padding: 1px 6px; background: var(--s2); border-radius: 8px; font-size: 9px; font-family: var(--fm); color: var(--dim) }
+.nt.on .nc { background: var(--bluebg); color: var(--blue2) }
+
+/* ─── PAGE ─── */
+.page { display: none; padding: 40px 48px 80px; max-width: 1400px; margin: 0 auto }
+.page.on { display: block }
+
+/* ─── STAT ROW ─── */
+.statrow { display: grid; grid-template-columns: repeat(4,1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 36px }
+.st { background: var(--s1); padding: 22px 24px }
+.st-lbl { font-size: 10px; font-weight: 600; color: var(--mid); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; font-family: var(--fm) }
+.st-val { font-size: 28px; font-weight: 700; color: var(--head); letter-spacing: -0.03em; line-height: 1 }
+.st-val.b { color: var(--blue2) }
+.st-val.m { color: var(--money) }
+
+/* ─── SECTION ROW ─── */
+.secrow { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; margin-top: 36px }
+.secrow:first-child, .secrow + .secrow { margin-top: 0 }
+.sec-lbl { font-size: 11px; font-weight: 600; color: var(--mid); letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--fm) }
+.sec-lbl .step { display: inline-block; width: 16px; height: 16px; background: var(--blue); border-radius: 3px; font-size: 9px; color: #fff; text-align: center; line-height: 16px; margin-right: 6px; vertical-align: middle }
+.sec-lbl .brand-tag { color: var(--blue2); font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; margin-left: 6px }
+.sec-right { display: flex; align-items: center; gap: 8px }
+
+/* ─── BRAND STRIP ─── */
+.brandstrip { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 36px }
+.bb { display: flex; align-items: center; gap: 6px; padding: 6px 13px; background: var(--s2); border: 1px solid var(--line2); border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--mid); cursor: pointer; transition: all .16s }
+.bb:hover { color: var(--head); border-color: var(--line2) }
+.bb.on { background: var(--bluebg); border-color: rgba(79,142,247,0.3); color: var(--blue2) }
+.bdot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0 }
+.dbstatus { display: flex; align-items: center; gap: 5px; font-size: 10px; font-family: var(--fm); color: var(--money); margin-left: auto }
+.dbdot { width: 5px; height: 5px; border-radius: 50%; background: var(--money) }
+
+/* ─── TYPE BADGE ─── */
+.tbadge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-family: var(--fm); font-weight: 500; letter-spacing: 0.05em; white-space: nowrap }
+.tb-fd     { background: rgba(79,142,247,0.12);   color: #7aadfa;  border: 1px solid rgba(79,142,247,0.28) }
+.tb-fb     { background: rgba(245,158,11,0.12);   color: #fbbf24;  border: 1px solid rgba(245,158,11,0.3) }
+.tb-ft     { background: rgba(6,182,212,0.1);     color: #22d3ee;  border: 1px solid rgba(6,182,212,0.28) }
+.tb-md     { background: rgba(139,92,246,0.1);    color: #a78bfa;  border: 1px solid rgba(139,92,246,0.26) }
+.tb-bx     { background: rgba(244,63,94,0.1);     color: #fb7185;  border: 1px solid rgba(244,63,94,0.26) }
+.tb-ptz    { background: rgba(16,185,129,0.1);    color: #34d399;  border: 1px solid rgba(16,185,129,0.28) }
+.tb-fish   { background: rgba(236,72,153,0.1);    color: #f472b6;  border: 1px solid rgba(236,72,153,0.26) }
+.tb-pan    { background: rgba(99,102,241,0.1);    color: #818cf8;  border: 1px solid rgba(99,102,241,0.26) }
+.tb-corner { background: rgba(132,204,22,0.1);    color: #a3e635;  border: 1px solid rgba(132,204,22,0.26) }
+.tb-therm  { background: rgba(239,68,68,0.1);     color: #f87171;  border: 1px solid rgba(239,68,68,0.26) }
+
+/* ─── TABLE ─── */
+.tbl { border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
+table { width: 100%; border-collapse: collapse }
+thead th { padding: 11px 18px; text-align: left; font-size: 9px; font-family: var(--fm); color: var(--mid); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--line); background: var(--s1); font-weight: 400; white-space: nowrap }
+tbody td { padding: 14px 18px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--body) }
+tbody tr:last-child td { border-bottom: none }
+tbody tr:hover td { background: rgba(79,142,247,0.025) }
+.rn { font-family: var(--fm); font-size: 10px; color: var(--mid); font-weight: 300 }
+.mname { font-family: var(--fm); font-size: 12px; color: var(--head); font-weight: 400 }
+.pr { font-family: var(--fm); font-size: 12px; color: var(--money); font-weight: 400 }
+.pr0 { font-family: var(--fm); font-size: 12px; color: var(--money); opacity: 0.3 }
+.rs { font-family: var(--fm); font-size: 11px; color: var(--mid) }
+.qin { width: 52px; padding: 6px 8px; background: var(--s2); border: 1px solid var(--line2); border-radius: 5px; font-size: 12px; font-family: var(--fm); color: var(--head); text-align: center; outline: none }
+.qin:focus { border-color: rgba(79,142,247,0.5) }
+.xb { background: none; border: none; color: var(--line2); cursor: pointer; font-size: 16px; line-height: 1; padding: 0; transition: color .15s }
+.xb:hover { color: #f43f5e }
+
+/* ─── TABLE FOOTER ─── */
+.tfooter { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; background: var(--s1); border-top: 1px solid var(--line); flex-wrap: wrap; gap: 12px }
+.gt-label { font-size: 9px; font-family: var(--fm); color: var(--mid); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 4px }
+.gt-val { font-size: 24px; font-weight: 700; color: var(--money); letter-spacing: -0.02em }
+.fbtns { display: flex; gap: 8px; flex-wrap: wrap }
+.disc { padding: 12px 20px; border-top: 1px solid var(--line); font-size: 10px; font-family: var(--fm); color: var(--mid); line-height: 1.7 }
+.disc b { color: var(--mid); font-weight: 500 }
+
+/* ─── BUTTONS ─── */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 15px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; font-family: var(--f); white-space: nowrap; transition: all .15s }
+.btn-blue { background: var(--blue); color: #fff; box-shadow: 0 2px 14px rgba(79,142,247,0.28) }
+.btn-blue:hover { background: #3a7de8 }
+.btn-ghost { background: var(--s2); color: var(--body); border: 1px solid var(--line2) }
+.btn-ghost:hover { color: var(--head) }
+.btn-ob { background: transparent; color: var(--blue2); border: 1px solid rgba(79,142,247,0.25) }
+.btn-ob:hover { background: var(--bluebg) }
+.btn-og { background: transparent; color: var(--money); border: 1px solid rgba(0,200,83,0.25) }
+.btn-og:hover { background: var(--moneybg) }
+.btn-sm { padding: 6px 12px; font-size: 11px }
+
+/* ─── NOTICE ─── */
+.notice { display: flex; align-items: flex-start; gap: 9px; padding: 11px 16px; background: var(--bluebg); border: 1px solid rgba(79,142,247,0.1); border-radius: 8px; margin-bottom: 32px; font-size: 12px; color: var(--body); line-height: 1.6 }
+.notice b { color: var(--blue2); font-weight: 500 }
+
+/* ─── COMPARE ─── */
+.cmpgrid { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; margin-bottom: 28px }
+.csc { background: var(--s1); border: 1px solid var(--line); border-radius: 10px; padding: 16px; position: relative; overflow: hidden }
+.csc::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--cc) }
+.cnum { width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; margin-bottom: 16px; font-family: var(--fm) }
+.csc-lbl { font-size: 9px; font-family: var(--fm); color: var(--dim); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 5px }
+.csc-brand { font-size: 13px; font-weight: 700; color: var(--head); margin-bottom: 2px; letter-spacing: -0.01em }
+.csc-model { font-size: 10px; font-family: var(--fm); color: var(--blue2); margin-bottom: 16px }
+.fl { font-size: 9px; font-family: var(--fm); color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 5px; margin-top: 12px }
+.smock { display: flex; align-items: center; justify-content: space-between; padding: 8px 11px; background: var(--s2); border: 1px solid var(--line2); border-radius: 6px; font-size: 11px; font-family: var(--fm); color: var(--mid); cursor: pointer; transition: border-color .16s }
+.smock:hover { border-color: var(--line2) }
+.csel { width: 100%; padding: 8px 10px; background: var(--s2); border: 1px solid var(--line2); border-radius: 6px; font-size: 11px; font-family: var(--fm); color: var(--head); cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b85a8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; transition: border-color .16s }
+.csel:focus, .csel:hover { border-color: rgba(79,142,247,0.5) }
+.csel option { background: #171d2e; color: var(--head) }
+.csc-info { font-size: 10px; font-family: var(--fm); color: var(--blue2); margin-top: 6px; min-height: 14px; letter-spacing: 0.02em }
+
+/* ─── MATRIX ─── */
+.matrix { border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
+.mrow { display: grid; grid-template-columns: 130px repeat(5,1fr); border-bottom: 1px solid var(--line) }
+.mrow:last-child { border-bottom: none }
+.mc { padding: 13px 16px; border-right: 1px solid var(--line); font-size: 12px; color: var(--body) }
+.mc:last-child { border-right: none }
+.mc.feat { font-size: 9px; font-family: var(--fm); color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; background: var(--s1); display: flex; align-items: center }
+.mc.hdr { background: var(--s1) }
+.mc.win { background: var(--bluebg) }
+.mc.win .mc-brand { color: var(--blue2) }
+.win-tag { float: right; font-size: 8px; font-family: var(--fm); color: var(--blue2); letter-spacing: 0.06em; margin-top: 1px }
+.mc-brand { font-size: 9px; font-family: var(--fm); color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 3px }
+.mc-model { font-size: 13px; font-weight: 600; color: var(--head); letter-spacing: -0.01em }
+.mc-price { font-size: 16px; font-weight: 600; color: var(--money); font-family: var(--fm); letter-spacing: -0.01em }
+.stars { color: var(--blue2); letter-spacing: 1px }
+.stardim { color: var(--line2) }
+.atag { display: inline-block; background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.2); color: #b39dfa; border-radius: 4px; padding: 2px 7px; font-size: 9px; font-family: var(--fm); margin: 2px 2px 2px 0 }
+
+/* ─── ADMIN ─── */
+.admt { width: 100%; border-collapse: collapse }
+.admt th { padding: 11px 18px; text-align: left; font-size: 9px; font-family: var(--fm); color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--line); font-weight: 400; background: var(--s1) }
+.admt td { padding: 13px 18px; border-bottom: 1px solid var(--line); font-family: var(--fm); font-size: 11px; color: var(--mid) }
+.admt tr:last-child td { border-bottom: none }
+.admt tr:hover td { background: rgba(79,142,247,0.02) }
+.ua { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-family: var(--fm); letter-spacing: 0.06em }
+.ua-a { background: var(--bluebg); color: var(--blue2); border: 1px solid rgba(79,142,247,0.2) }
+.ua-u { background: rgba(0,200,83,0.06); color: #6ee7b7; border: 1px solid rgba(0,200,83,0.18) }
+
+/* ─── LOGIN ─── */
+#page-login { min-height: 72vh; display: flex; align-items: center; justify-content: center; padding: 40px }
+.lcard { width: min(390px,100%); background: var(--s1); border: 1px solid var(--line2); border-radius: 14px; padding: 44px 40px 36px; position: relative; overflow: hidden; box-shadow: 0 32px 64px rgba(0,0,0,0.5) }
+.lcard::before { content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 1px; background: linear-gradient(90deg, transparent, rgba(79,142,247,0.5), transparent) }
+.l-icon { width: 40px; height: 40px; border: 1px solid rgba(79,142,247,0.4); border-radius: 9px; display: flex; align-items: center; justify-content: center; background: rgba(79,142,247,0.08); margin: 0 auto 18px }
+.l-icon svg { width: 18px; height: 18px; color: var(--blue2) }
+.l-title { font-size: 22px; font-weight: 700; color: var(--head); text-align: center; letter-spacing: -0.03em }
+.l-title em { color: var(--blue2); font-style: normal }
+.l-sub { font-size: 10px; font-family: var(--fm); color: var(--dim); text-align: center; text-transform: uppercase; letter-spacing: 0.14em; margin-top: 5px; margin-bottom: 30px }
+.l-tabs { display: flex; background: var(--s2); border-radius: 7px; padding: 3px; margin-bottom: 24px; gap: 2px }
+.l-tab { flex: 1; padding: 8px; border: none; background: none; color: var(--dim); font-family: var(--f); font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 5px; transition: all .18s }
+.l-tab.on { background: var(--s3); color: var(--head) }
+.lf { margin-bottom: 15px }
+.lf label { display: block; font-size: 9px; font-family: var(--fm); color: var(--dim); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 7px }
+.lf input { width: 100%; background: var(--s2); border: 1px solid var(--line2); color: var(--head); padding: 10px 13px; border-radius: 7px; font-size: 13px; font-family: var(--f); outline: none; transition: border-color .2s }
+.lf input:focus { border-color: rgba(79,142,247,0.5); box-shadow: 0 0 0 3px rgba(79,142,247,0.07) }
+.lf input::placeholder { color: var(--dim); opacity: 0.7 }
+.l-btn { width: 100%; padding: 11px; background: var(--blue); border: none; border-radius: 7px; font-family: var(--f); font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; margin-top: 6px; transition: all .2s; letter-spacing: 0.01em; box-shadow: 0 4px 16px rgba(79,142,247,0.3) }
+.l-btn:hover { background: #3a7de8; transform: translateY(-1px) }
+.l-foot { text-align: center; margin-top: 20px; font-size: 10px; font-family: var(--fm); color: var(--dim) }
+
+::-webkit-scrollbar { width: 4px; height: 4px }
+::-webkit-scrollbar-track { background: transparent }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 4px }
+</style>
+<style>
+/* ═══ AUTH OVERLAY ═══ */
+#auth-overlay {
+  position:fixed; inset:0; background:var(--bg); z-index:9999;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--f-ui);
+}
+.auth-box {
+  background:var(--s1); border:1px solid var(--b1); border-radius:16px;
+  padding:40px; width:100%; max-width:420px; box-shadow:0 24px 64px rgba(0,0,0,.6);
+}
+.auth-logo { text-align:center; margin-bottom:28px; }
+.auth-logo-text { font-size:26px; font-weight:700; letter-spacing:-0.5px; color:var(--hi); }
+.auth-logo-text em { font-style:italic; color:var(--silver); }
+.auth-logo-sub { font-size:11px; color:var(--silver); margin-top:4px; letter-spacing:1px; text-transform:uppercase; }
+.auth-tabs { display:flex; background:var(--bg); border-radius:8px; padding:3px; margin-bottom:24px; }
+.auth-tab { flex:1; padding:8px; text-align:center; font-size:12px; font-weight:600; 
+  color:var(--silver); cursor:pointer; border-radius:6px; transition:all .2s; border:none; background:none; }
+.auth-tab.on { background:var(--s2); color:var(--hi); }
+.auth-field { margin-bottom:16px; }
+.auth-label { font-size:11px; font-weight:600; color:var(--silver); text-transform:uppercase; 
+  letter-spacing:.6px; margin-bottom:6px; display:block; }
+.auth-input { width:100%; background:var(--bg); border:1px solid var(--b1); border-radius:8px;
+  padding:10px 12px; font-size:13px; color:var(--hi); font-family:var(--f-ui);
+  outline:none; box-sizing:border-box; transition:border-color .2s; }
+.auth-input:focus { border-color:var(--blue); }
+.auth-hint { font-size:11px; color:var(--silver); margin-top:5px; line-height:1.4; }
+.auth-btn { width:100%; padding:12px; background:var(--blue); border:none; border-radius:8px;
+  color:#fff; font-size:13px; font-weight:700; cursor:pointer; margin-top:8px;
+  font-family:var(--f-ui); letter-spacing:.3px; transition:opacity .2s; }
+.auth-btn:hover { opacity:.85; }
+.auth-btn:disabled { opacity:.5; cursor:not-allowed; }
+.auth-msg { font-size:12px; margin-top:12px; text-align:center; min-height:18px; }
+.auth-msg.err { color:#f43f5e; }
+.auth-msg.ok { color:var(--money); }
+.auth-footer { text-align:center; margin-top:20px; font-size:11px; color:var(--silver); line-height:1.6; }
+/* ═══ SESSION TIMEOUT WARNING ═══ */
+#session-warn {
+  position:fixed; bottom:24px; right:24px; background:#f59e0b; color:#000;
+  padding:12px 20px; border-radius:10px; font-size:12px; font-weight:700;
+  z-index:9998; display:none; box-shadow:0 8px 24px rgba(0,0,0,.4);
+  animation: pulse-warn 1s infinite alternate;
+}
+@keyframes pulse-warn { from{opacity:.8} to{opacity:1} }
+</style>
+</head>
+<body>
+<!-- DB loading overlay (shown while fetching cameras from Supabase) -->
+<div id="db-loading" style="display:none">
+  <div class="db-spinner"></div>
+  <div style="font-size:13px;color:var(--mid)">Loading camera database…</div>
+</div>
+
+<!-- ═══ SESSION TIMEOUT WARNING ═══ -->
+<div id='session-warn'>⚠ Session expires in <span id='warn-mins'>5</span> minutes due to inactivity — save your work</div>
+
+<!-- ═══ AUTH OVERLAY ═══ -->
+<div id='auth-overlay'>
+  <div class='auth-box'>
+    <div class='auth-logo'>
+      <!-- Aarya mark + ryaview.ai wordmark — matches header logo -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px">
+        <!-- ā mark -->
+        <svg width="38" height="38" viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M26 26 C30 21, 45 19, 62 20 C73 21, 78 24, 76 29 C74 33, 62 35, 47 34 C34 33, 23 31, 26 26 Z"
+            fill="#e8a820" style="animation: gold-breathe 3.5s ease-in-out infinite"/>
+          <text x="50" y="90" text-anchor="middle"
+            font-family="Georgia, 'Times New Roman', serif"
+            font-size="62" font-style="italic" font-weight="400"
+            fill="#dce8f4">a</text>
+        </svg>
+        <!-- divider -->
+        <div style="width:1px;height:32px;background:rgba(255,255,255,0.1)"></div>
+        <!-- wordmark -->
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+          <div style="font-size:22px;font-weight:700;letter-spacing:-0.03em;color:#edf4fc;display:inline-flex;align-items:baseline;gap:0">
+            ryaview<div style="position:relative;display:inline-block;line-height:1;padding-top:7px;vertical-align:bottom">
+              <svg style="position:absolute;top:0;left:-1px;width:calc(100% + 2px);height:8px;animation:gold-breathe 3.5s ease-in-out infinite" viewBox="0 0 48 8" preserveAspectRatio="none" fill="none">
+                <path d="M1 5 C4 2.5, 12 1.5, 24 2 C34 2.5, 42 3, 46 4.5 C47.5 5.2, 47 6.5, 44 6.8 C38 7.5, 26 7, 14 6.5 C7 6.2, 1 6.2, 1 5Z" fill="url(#brushGradAuth)"/>
+                <defs>
+                  <linearGradient id="brushGradAuth" x1="0" y1="0" x2="48" y2="0" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%"   stop-color="#b87010"/>
+                    <stop offset="50%"  stop-color="#e8a820"/>
+                    <stop offset="100%" stop-color="#f5d060"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <span style="font-size:22px;font-weight:700;background:linear-gradient(90deg,#e8a820,#f5d060);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:gold-breathe 3.5s ease-in-out infinite">.ai</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class='auth-logo-sub'>Camera Intelligence Platform</div>
+    </div>
+    <div class='auth-tabs'>
+      <button class='auth-tab on' id='tab-login' onclick='authTab("login")'>Sign In</button>
+      <button class='auth-tab' id='tab-register' onclick='authTab("register")'>Register</button>
+    </div>
+    <!-- LOGIN FORM -->
+    <div id='form-login'>
+      <div class='auth-field'>
+        <label class='auth-label'>Gmail Address</label>
+        <input class='auth-input' id='li-email' type='email' placeholder='yourname@gmail.com' autocomplete='email'>
+        <div class='auth-hint'>Use your Gmail address — this keeps access traceable and secure.</div>
+      </div>
+      <div class='auth-field'>
+        <label class='auth-label'>Password</label>
+        <input class='auth-input' id='li-pass' type='password' placeholder='Your ryaview.ai password' autocomplete='current-password'>
+      </div>
+      <button class='auth-btn' onclick='doLogin()' id='li-btn'>Sign In</button>
+      <div style='text-align:right;margin-top:10px'>
+        <span onclick='showForgot()' style='font-size:11px;color:var(--mid);cursor:pointer;font-family:var(--fm);letter-spacing:0.03em;text-decoration:underline;text-underline-offset:2px;opacity:0.8' onmouseover='this.style.opacity=1' onmouseout='this.style.opacity=0.8'>Forgot password?</span>
+      </div>
+      <div class='auth-msg' id='li-msg'></div>
+      <!-- FORGOT PASSWORD PANEL -->
+      <div id='forgot-panel' style='display:none;margin-top:14px;padding:14px;background:rgba(79,142,247,0.05);border:1px solid rgba(79,142,247,0.15);border-radius:8px'>
+        <div style='font-size:11px;color:var(--mid);margin-bottom:10px;line-height:1.6;font-family:var(--fm)'>Enter your Gmail address and we'll send a password reset link.</div>
+        <input class='auth-input' id='forgot-email' type='email' placeholder='yourname@gmail.com' style='margin-bottom:10px'>
+        <button class='auth-btn' onclick='doForgotPassword()' id='forgot-btn' style='padding:10px'>Send Reset Link</button>
+        <div class='auth-msg' id='forgot-msg' style='margin-top:8px'></div>
+      </div>
+    </div>
+    <!-- REGISTER FORM -->
+    <div id='form-register' style='display:none'>
+      <div class='auth-field'>
+        <label class='auth-label'>Full Name</label>
+        <input class='auth-input' id='rg-name' type='text' placeholder='Your full name'>
+      </div>
+      <div class='auth-field'>
+        <label class='auth-label'>Gmail Address</label>
+        <input class='auth-input' id='rg-email' type='email' placeholder='yourname@gmail.com' autocomplete='email'>
+        <div class='auth-hint'>ryaview.ai is currently available to Gmail users only.</div>
+      </div>
+      <div class='auth-field'>
+        <label class='auth-label'>Create Password</label>
+        <input class='auth-input' id='rg-pass' type='password' placeholder='Create a unique password for ryaview.ai' autocomplete='new-password'>
+        <div class='auth-hint'>Create a password unique to ryaview.ai — do not reuse your Google password.</div>
+      </div>
+      <button class='auth-btn' onclick='doRegister()' id='rg-btn'>Create Account</button>
+      <div class='auth-msg' id='rg-msg'></div>
+    </div>
+    <div class='auth-footer'>
+      For authorised internal use only<br>
+      <span style='color:var(--blue)'>ryaview.ai</span> · Camera Intelligence Platform
+    </div>
+  </div>
+</div>
+
+<div id="shell">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <!-- Aarya ā mark — adapted for dark UI, pulses with .ai -->
+    <div class="logo-icon">
+      <svg width="30" height="30" viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M26 26 C30 21, 45 19, 62 20 C73 21, 78 24, 76 29 C74 33, 62 35, 47 34 C34 33, 23 31, 26 26 Z"
+          fill="#e8a820" style="animation: gold-breathe 3.5s ease-in-out infinite"/>
+        <text x="50" y="90" text-anchor="middle"
+          font-family="Georgia, 'Times New Roman', serif"
+          font-size="62" font-style="italic" font-weight="400"
+          fill="#dce8f4">a</text>
+      </svg>
+    </div>
+    <div class="logo-divider"></div>
+    <div>
+      <div class="logo-text">ryaview<div class="ai-wrap">
+        <svg class="ai-brushstroke" viewBox="0 0 48 8" preserveAspectRatio="none" fill="none">
+          <path d="M1 5 C4 2.5, 12 1.5, 24 2 C34 2.5, 42 3, 46 4.5 C47.5 5.2, 47 6.5, 44 6.8 C38 7.5, 26 7, 14 6.5 C7 6.2, 1 6.2, 1 5Z"
+            fill="url(#brushGrad)"/>
+          <defs>
+            <linearGradient id="brushGrad" x1="0" y1="0" x2="48" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#b87010"/>
+              <stop offset="50%"  stop-color="#e8a820"/>
+              <stop offset="100%" stop-color="#f5d060"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="ai-label">.ai</span>
+      </div></div>
+      <div class="logo-sub">Camera Intelligence · Internal</div>
+    </div>
+  </div>
+  <div class="hright">
+    <div class="pill pill-user">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <span id="hdr-email">—</span>
+    </div>
+    <div class="tag-soft">SOFT LAUNCH</div>
+    <div class="pill pill-live"><div class="dot"></div>LIVE</div>
+    <button class="btn-signout">Sign Out</button>
+  </div>
+</header>
+
+<!-- DEMO SWITCHER -->
+
+
+<!-- DISCLAIMER STRIP -->
+<div id="disclaimer-strip" style="background:#0f1520;border-bottom:1px solid #1e2d45;padding:7px 48px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:8px">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#e8a820" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span style="font-size:9.5px;font-family:var(--fm);color:#90aece;letter-spacing:0.04em"><b style="color:#cddaeb">Prices are indicative only</b> — shown at live USD/INR forex rate — exclusive of customs duties, BCD, SWS, GST, freight &amp; installation</span>
+  </div>
+  <span style="font-size:9.5px;font-family:var(--fm);color:#e8a820;letter-spacing:0.04em;white-space:nowrap;font-weight:600">⚠ AI recommendations can make mistakes — verify before quoting</span>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nt on" id="nt-boq" onclick="sw('boq',this)">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+    Bill of Quantities <span class="nc">12 items</span>
+  </div>
+  <div class="nt" id="nt-compare" onclick="sw('compare',this)">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Camera Comparison <span class="nc">5 slots</span>
+  </div>
+  <div class="nt" id="nt-admin" onclick="sw('admin',this)">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Admin <span class="nc">admin</span>
+  </div>
+</div>
+
+<!-- ══ BOQ ══ -->
+<div id="page-boq" class="page on">
+
+  <!-- STAT ROW -->
+  <div class="statrow">
+    <div class="st"><div class="st-lbl">Active Brand</div><div class="st-val" id="stat-brand">—</div></div>
+    <div class="st"><div class="st-lbl">Line Items</div><div class="st-val b" id="stat-items">0</div></div>
+    <div class="st"><div class="st-lbl">Total Units</div><div class="st-val b" id="stat-units">0</div></div>
+    <div class="st"><div class="st-lbl">BOQ Value</div><div class="st-val m" id="stat-value">₹ 0</div></div>
+  </div>
+
+  <!-- PROJECT DETAILS CARD -->
+  <div class="secrow" style="margin-top:0;margin-bottom:12px">
+    <div class="sec-lbl">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Project Details
+    </div>
+  </div>
+  <div class="proj-card">
+    <div class="proj-field">
+      <label class="proj-label">Client / Company Name <span style="color:#f43f5e">*</span></label>
+      <input class="proj-input proj-req" id="proj-client" placeholder="e.g. Apollo Hospitals, Pune" type="text">
+    </div>
+    <div class="proj-field">
+      <label class="proj-label">Project / Site Name <span style="color:#f43f5e">*</span></label>
+      <input class="proj-input proj-req" id="proj-site" placeholder="e.g. Main Campus — Gate 1 to 4" type="text">
+    </div>
+    <div class="proj-field">
+      <label class="proj-label">Prepared By</label>
+      <input class="proj-input" id="proj-by" placeholder="Your name" type="text">
+    </div>
+    <div class="proj-field">
+      <label class="proj-label">BOQ Date</label>
+      <input class="proj-input" id="proj-date" type="date">
+    </div>
+  </div>
+
+  <!-- FOREX BADGE -->
+  <div id="forex-badge" style="display:flex;align-items:center;gap:10px;margin:10px 0 4px 0;padding:10px 16px;background:rgba(250,188,6,0.08);border:1px solid rgba(250,188,6,0.25);border-radius:8px;font-family:var(--fm)">
+    <span style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em">Live USD / INR</span>
+    <span id="forex-rate" style="font-size:18px;font-weight:700;color:#fabc06;letter-spacing:.03em">₹—</span>
+    <span id="forex-time" style="font-size:10px;color:var(--dim)"></span>
+    <span style="font-size:10px;color:var(--dim);margin-left:auto">⚠ Prices exclude customs duties · GST · freight</span>
+  </div>
+
+  <!-- BRAND STEP -->
+  <div class="secrow" style="margin-top:0">
+    <div class="sec-lbl"><span class="step">1</span>Select Brand</div>
+    <div class="sec-right">
+      <div class="dbstatus"><div class="dbdot"></div><span id="db-count">DB live · 412 models</span></div>
+    </div>
+  </div>
+  <div class="brandstrip" id="boq-brands">
+    <button class="bb" onclick="selectBoqBrand(this,'Axis','#60a5fa')"><span class="bdot" style="background:#60a5fa"></span>Axis</button>
+    <button class="bb" onclick="selectBoqBrand(this,'Hikvision','#f87171')"><span class="bdot" style="background:#f87171"></span>Hikvision</button>
+    <button class="bb" onclick="selectBoqBrand(this,'Hanwha','#a78bfa')"><span class="bdot" style="background:#a78bfa"></span>Hanwha</button>
+    <button class="bb" onclick="selectBoqBrand(this,'Bosch','#fb923c')"><span class="bdot" style="background:#fb923c"></span>Bosch</button>
+    <button class="bb" onclick="selectBoqBrand(this,'CP Plus','#34d399')"><span class="bdot" style="background:#34d399"></span>CP Plus</button>
+    <button class="bb" onclick="selectBoqBrand(this,'Honeywell','#fbbf24')"><span class="bdot" style="background:#fbbf24"></span>Honeywell</button>
+    <button class="bb" onclick="selectBoqBrand(this,'i-PRO','#e0a020')"><span class="bdot" style="background:#e0a020"></span>i-PRO</button>
+    <button class="bb" onclick="selectBoqBrand(this,'Pelco','#f472b6')"><span class="bdot" style="background:#f472b6"></span>Pelco</button>
+    <button class="bb" onclick="selectBoqBrand(this,'Matrix','#4ade80')"><span class="bdot" style="background:#4ade80"></span>Matrix</button>
+    <button class="bb" onclick="selectBoqBrand(this,'Sparsh','#e879f9')"><span class="bdot" style="background:#e879f9"></span>Sparsh</button>
+  </div>
+
+  <!-- BOQ TABLE STEP -->
+  <div class="secrow" id="boq-step2-hdr" style="display:none">
+    <div class="sec-lbl"><span class="step">2</span>Bill of Quantities <span class="brand-tag" id="boq-brand-tag"></span></div>
+    <div class="sec-right"><button class="btn btn-ghost btn-sm" onclick="addBoqRow()">+ Add Row</button></div>
+  </div>
+
+  <div class="notice" id="boq-notice" style="display:none">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Prices are <b>indicative only</b> — shown at <b>live USD/INR forex rate</b> — <b>exclusive of customs duties, BCD, SWS, GST, freight and installation.</b> Confirm with authorised distributor before quoting.
+  </div>
+
+  <div class="tbl" id="boq-tbl" style="display:none">
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th style="width:34px">#</th>
+          <th style="min-width:210px">Model No.</th>
+          <th style="min-width:115px">Type</th>
+          <th style="min-width:75px">Resolution</th>
+          <th style="min-width:160px">Unit Price (INR) <span style="font-size:9px;color:var(--dim);font-weight:400">editable</span></th>
+          <th style="min-width:66px">Qty</th>
+          <th style="min-width:128px">Total (INR)</th>
+          <th style="width:30px"></th>
+        </tr></thead>
+        <tbody id="boq-tbody"></tbody>
+      </table>
+    </div>
+    <div class="tfooter">
+      <div>
+        <div class="gt-label">Grand Total</div>
+        <div class="gt-val" id="boq-grand-total">₹ 0</div>
+      </div>
+      <div class="fbtns">
+        <button class="btn btn-ob" onclick="openAltModal()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="21" y2="21"/></svg>
+          Generate Alternative BOQ
+        </button>
+        <button class="btn btn-og" onclick="exportBoqPDF()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Export PDF
+        </button>
+        <button class="btn btn-og" style="color:var(--money)" onclick="exportBoqExcel()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export Excel
+        </button>
+      </div>
+    </div>
+    <div class="disc">⚠ <b>Disclaimer:</b> All prices are indicative only (live forex rate, duties excluded) — <b>exclusive of customs duties, BCD, SWS, GST, freight and installation.</b> Confirm before formal quotation.</div>
+  </div>
+</div>
+
+<!-- ══ ALT BOQ MODAL ══ -->
+<div class="modal-overlay" id="alt-modal" onclick="if(event.target===this)closeAltModal()">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <div class="modal-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="4" y1="4" x2="21" y2="21"/></svg>
+        Alternative BOQ
+        <span class="alt-badge">ALTERNATIVE</span>
+        <span id="alt-excl-tag" style="font-size:10px;font-family:var(--fm);color:var(--mid);font-weight:400"></span>
+      </div>
+      <button class="modal-close" onclick="closeAltModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- Alt brand selector -->
+      <div style="margin-bottom:16px">
+        <div class="sec-lbl" style="margin-bottom:10px">
+          <span class="step">1</span> Select Alternative Brand
+        </div>
+        <div class="brandstrip" id="alt-brands" style="margin-bottom:0"></div>
+      </div>
+      <div id="alt-step2" style="display:none">
+        <div class="secrow" style="margin-top:0">
+          <div class="sec-lbl"><span class="step">2</span>Alternative BOQ <span class="brand-tag" id="alt-brand-tag"></span></div>
+          <div class="sec-right"><button class="btn btn-ghost btn-sm" onclick="addAltRow()">+ Add Row</button></div>
+        </div>
+        <div style="overflow-x:auto;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:10px">
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr>
+              <th style="width:34px;padding:10px 14px;text-align:left;font-size:9px;font-family:var(--fm);color:var(--dim);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line);background:var(--s1);font-weight:400">#</th>
+              <th style="min-width:210px;padding:10px 14px;text-align:left;font-size:9px;font-family:var(--fm);color:var(--dim);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line);background:var(--s1);font-weight:400">Model No.</th>
+              <th style="min-width:115px;padding:10px 14px;text-align:left;font-size:9px;font-family:var(--fm);color:var(--dim);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line);background:var(--s1);font-weight:400">Type</th>
+              <th style="min-width:75px;padding:10px 14px;text-align:left;font-size:9px;font-family:var(--fm);color:var(--dim);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line);background:var(--s1);font-weight:400">Resolution</th>
+              <th style="min-width:138px;padding:10px 14px;text-align:left;font-size:9px;font-family:var(--fm);color:var(--dim);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line);background:var(--s1);font-weight:400">Unit Price (INR)</th>
+              <th style="min-width:66px;padding:10px 14px;text-align:left;font-size:9px;font-family:var(--fm);color:var(--dim);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line);background:var(--s1);font-weight:400">Qty</th>
+              <th style="min-width:128px;padding:10px 14px;text-align:left;font-size:9px;font-family:var(--fm);color:var(--dim);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--line);background:var(--s1);font-weight:400">Total (INR)</th>
+              <th style="width:30px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--s1)"></th>
+            </tr></thead>
+            <tbody id="alt-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div>
+        <div class="gt-label">Alternative Grand Total</div>
+        <div class="gt-val" id="alt-grand-total">₹ 0</div>
+      </div>
+      <div class="excl-note" id="alt-excl-note"></div>
+      <div class="fbtns">
+        <button class="btn btn-og" onclick="exportAltPDF()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Export PDF
+        </button>
+        <button class="btn btn-og" onclick="exportAltExcel()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export Excel
+        </button>
+        <button class="btn btn-ghost" onclick="closeAltModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ COMPARE ══ -->
+<div id="page-compare" class="page">
+  <div class="notice" style="margin-top:0">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path d="M1 6s1-1 4-1 5 2 8 2 4-1 4-1V22s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="1" y1="6" x2="1" y2="22"/></svg>
+    Select up to <b>5 cameras</b> across any brands — hit <b>Compare Now</b> to generate the full matrix. Scroll the matrix horizontally if needed.
+  </div>
+
+  <div class="cmpgrid" id="cmp-cards">
+    <!-- Slot 1 -->
+    <div class="csc" style="--cc:var(--blue)">
+      <div class="cnum" style="background:var(--blue)">1</div>
+      <div class="csc-lbl">Camera 1</div>
+      <div class="fl">Brand</div>
+      <select class="csel" id="b1" onchange="loadModels(1)">
+        <option value="">— select brand —</option>
+        <option value="Axis">Axis</option>
+        <option value="Hikvision">Hikvision</option><option value="Hanwha">Hanwha</option>
+        <option value="Bosch">Bosch</option><option value="CP Plus">CP Plus</option>
+        <option value="Honeywell">Honeywell</option><option value="i-PRO">i-PRO</option>
+        <option value="Pelco">Pelco</option><option value="Matrix">Matrix</option><option value="Sparsh">Sparsh</option>
+      </select>
+      <div class="fl">Model</div>
+      <select class="csel" id="m1" onchange="updateInfo(1)"><option value="">— select model —</option></select>
+      <div class="csc-info" id="info1"></div>
+    </div>
+    <!-- Slot 2 -->
+    <div class="csc" style="--cc:var(--money)">
+      <div class="cnum" style="background:var(--money)">2</div>
+      <div class="csc-lbl">Camera 2</div>
+      <div class="fl">Brand</div>
+      <select class="csel" id="b2" onchange="loadModels(2)">
+        <option value="">— select brand —</option>
+        <option value="Axis">Axis</option><option value="Hikvision">Hikvision</option>
+        <option value="Hanwha">Hanwha</option><option value="Bosch">Bosch</option>
+        <option value="CP Plus">CP Plus</option><option value="Honeywell">Honeywell</option>
+        <option value="i-PRO">i-PRO</option><option value="Pelco">Pelco</option>
+        <option value="Matrix">Matrix</option><option value="Sparsh">Sparsh</option>
+      </select>
+      <div class="fl">Model</div>
+      <select class="csel" id="m2" onchange="updateInfo(2)"><option value="">— select model —</option></select>
+      <div class="csc-info" id="info2"></div>
+    </div>
+    <!-- Slot 3 -->
+    <div class="csc" style="--cc:#a78bfa">
+      <div class="cnum" style="background:#8b5cf6">3</div>
+      <div class="csc-lbl">Camera 3</div>
+      <div class="fl">Brand</div>
+      <select class="csel" id="b3" onchange="loadModels(3)">
+        <option value="">— select brand —</option>
+        <option value="Axis">Axis</option><option value="Hikvision">Hikvision</option>
+        <option value="Hanwha">Hanwha</option><option value="Bosch">Bosch</option>
+        <option value="CP Plus">CP Plus</option><option value="Honeywell">Honeywell</option>
+        <option value="i-PRO">i-PRO</option><option value="Pelco">Pelco</option>
+        <option value="Matrix">Matrix</option><option value="Sparsh">Sparsh</option>
+      </select>
+      <div class="fl">Model</div>
+      <select class="csel" id="m3" onchange="updateInfo(3)"><option value="">— select model —</option></select>
+      <div class="csc-info" id="info3"></div>
+    </div>
+    <!-- Slot 4 -->
+    <div class="csc" style="--cc:#fb923c">
+      <div class="cnum" style="background:#f97316">4</div>
+      <div class="csc-lbl">Camera 4</div>
+      <div class="fl">Brand</div>
+      <select class="csel" id="b4" onchange="loadModels(4)">
+        <option value="">— select brand —</option>
+        <option value="Axis">Axis</option><option value="Hikvision">Hikvision</option>
+        <option value="Hanwha">Hanwha</option><option value="Bosch">Bosch</option>
+        <option value="CP Plus">CP Plus</option><option value="Honeywell">Honeywell</option>
+        <option value="i-PRO">i-PRO</option><option value="Pelco">Pelco</option>
+        <option value="Matrix">Matrix</option><option value="Sparsh">Sparsh</option>
+      </select>
+      <div class="fl">Model</div>
+      <select class="csel" id="m4" onchange="updateInfo(4)"><option value="">— select model —</option></select>
+      <div class="csc-info" id="info4"></div>
+    </div>
+    <!-- Slot 5 -->
+    <div class="csc" style="--cc:#34d399">
+      <div class="cnum" style="background:#10b981">5</div>
+      <div class="csc-lbl">Camera 5</div>
+      <div class="fl">Brand</div>
+      <select class="csel" id="b5" onchange="loadModels(5)">
+        <option value="">— select brand —</option>
+        <option value="Axis">Axis</option><option value="Hikvision">Hikvision</option>
+        <option value="Hanwha">Hanwha</option><option value="Bosch">Bosch</option>
+        <option value="CP Plus">CP Plus</option><option value="Honeywell">Honeywell</option>
+        <option value="i-PRO">i-PRO</option><option value="Pelco">Pelco</option>
+        <option value="Matrix">Matrix</option><option value="Sparsh">Sparsh</option>
+      </select>
+      <div class="fl">Model</div>
+      <select class="csel" id="m5" onchange="updateInfo(5)"><option value="">— select model —</option></select>
+      <div class="csc-info" id="info5"></div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="font-size:13px;font-weight:700;color:var(--head);letter-spacing:-.02em" id="matrix-title"></div>
+    <div style="display:flex;gap:8px;margin-left:auto">
+      <button class="btn btn-ghost btn-sm" id="btn-pdf" onclick="exportPDF()" style="display:none">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Export PDF
+      </button>
+      <button class="btn btn-primary" onclick="runCompare()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Compare Now
+      </button>
+    </div>
+  </div>
+
+  <!-- WINNER CARD — injected by runCompare() -->
+  <div id="winner-card" style="display:none;margin-bottom:20px"></div>
+
+  <div id="matrix-wrap" style="display:none;overflow-x:auto">
+    <div id="matrix-inner" class="matrix" style="min-width:900px"></div>
+  </div>
+</div>
+
+<!-- ══ ADMIN ══ -->
+<div id="page-admin" class="page">
+  <!-- Admin sub-tabs -->
+  <div class="adm-tabs">
+    <button class="adm-tab on" onclick="switchAdmTab('analytics',this)">📊 Analytics</button>
+    <button class="adm-tab" onclick="switchAdmTab('cameras',this)">📷 Camera Database</button>
+    <button class="adm-tab" onclick="switchAdmTab('ai',this)">✨ AI Refresh</button>
+    <button class="adm-tab" id="approvals-tab-btn" onclick="switchAdmTab('approvals',this)">👥 Users</button>
+  </div>
+
+  <!-- Analytics tab -->
+  <div id="adm-analytics" class="adm-panel">
+    <div id="admin-content"><div style="color:var(--mid);padding:40px;text-align:center">Loading analytics…</div></div>
+  </div>
+
+  <!-- Camera Database tab -->
+  <div id="adm-cameras" class="adm-panel" style="display:none">
+    <div class="crud-toolbar">
+      <div class="crud-left">
+        <select id="crud-brand-filter" onchange="renderCrudTable()" style="min-width:140px">
+          <option value="">All Brands</option>
+          <option>Axis</option><option>Hikvision</option><option>Hanwha</option><option>Bosch</option>
+          <option>CP Plus</option><option>Honeywell</option><option>i-PRO</option><option>Pelco</option>
+          <option>Matrix</option><option>Sparsh</option>
+        </select>
+        <input id="crud-search" type="text" placeholder="Search model…" oninput="renderCrudTable()" style="width:180px">
+        <span id="crud-count" style="font-size:11px;color:var(--mid)"></span>
+      </div>
+      <div class="crud-right">
+        <button class="btn btn-ghost btn-sm" onclick="openAddModal()">+ Add Model</button>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:10px">Click any cell to edit inline · Changes save automatically on Enter or Tab</div>
+    <div class="crud-table-wrap">
+      <table class="crud-tbl" id="crud-table">
+        <thead><tr>
+          <th>Brand</th><th>Model</th><th>Type</th><th>Resolution</th>
+          <th>Low Light</th><th>Price ₹</th><th>Updated</th><th></th>
+        </tr></thead>
+        <tbody id="crud-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Add model modal -->
+    <div id="add-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:none;align-items:center;justify-content:center">
+      <div class="add-modal">
+        <div class="add-modal-hdr">
+          <span>Add New Model</span>
+          <button onclick="closeAddModal()" style="background:none;border:none;color:var(--mid);font-size:20px;cursor:pointer;line-height:1">✕</button>
+        </div>
+        <div class="add-modal-body">
+          <div class="ef-row"><label>Brand</label>
+            <select id="am-brand">
+              <option>Axis</option><option>Hikvision</option><option>Hanwha</option><option>Bosch</option>
+              <option>CP Plus</option><option>Honeywell</option><option>i-PRO</option><option>Pelco</option>
+              <option>Matrix</option><option>Sparsh</option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="ef-row"><label>Model Name</label><input type="text" id="am-model" placeholder="e.g. Q3548-LVE"></div>
+            <div class="ef-row"><label>Resolution</label><input type="text" id="am-resolution" placeholder="4MP"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+            <div class="ef-row"><label>Type</label>
+              <select id="am-type">
+                <option>Fixed Dome</option><option>Fixed Bullet</option><option>Fixed Box</option>
+                <option>Mini Dome</option><option>PTZ</option><option>Panoramic</option>
+                <option>Thermal Bullet</option><option>Thermal PT</option><option>Thermal Temp</option>
+                <option>Thermal Dome</option><option>Corner</option><option>Corridor Dome</option>
+              </select>
+            </div>
+            <div class="ef-row"><label>Low Light</label>
+              <select id="am-lowlight">
+                <option>★★★☆☆</option><option selected>★★★★☆</option><option>★★★★★</option>
+              </select>
+            </div>
+            <div class="ef-row"><label>Price ₹</label><input type="number" id="am-price" placeholder="45000"></div>
+          </div>
+          <div class="ef-row"><label>Cybersecurity</label><input type="text" id="am-cyber" placeholder="AXIS OS · TPM 2.0 · 802.1AR · Signed FW"></div>
+          <div class="ef-row"><label>Analytics (one per line)</label>
+            <textarea id="am-analytics" rows="3" placeholder="Object Analytics&#10;Fence Guard&#10;Motion Detection"></textarea>
+          </div>
+          <div id="am-msg" style="min-height:16px;font-size:12px;margin-top:4px"></div>
+          <div class="ef-actions" style="margin-top:12px">
+            <button class="btn btn-ghost btn-sm" onclick="closeAddModal()">Cancel</button>
+            <button class="btn btn-og" onclick="addNewCamera()">Add Model</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Refresh tab -->
+  <div id="adm-ai" class="adm-panel" style="display:none">
+    <div class="ai-refresh-wrap">
+      <!-- Refresh All button -->
+      <div style="margin-bottom:24px">
+        <button id="ai-refresh-all-btn" class="ai-run-btn" style="padding:14px 32px;font-size:15px;font-weight:700;width:100%;max-width:340px;border-radius:12px" onclick="runAiRefreshAll()">✨ Refresh All Brands</button>
+        <div id="ai-all-progress" style="display:none;margin-top:12px;font-size:13px;color:var(--mid)"></div>
+      </div>
+      <div class="ai-brand-grid" id="ai-brand-grid">
+        <!-- brand tiles rendered by JS -->
+      </div>
+      <!-- AI auto-apply result panel -->
+      <div id="ai-result-panel" style="display:none;margin-top:20px;background:var(--s1);border:1px solid var(--line);border-radius:12px;padding:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span style="font-weight:700;color:var(--head);font-size:14px">✓ AI Refresh — <span id="ai-result-brand"></span></span>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ai-result-panel').style.display='none'">✕ Dismiss</button>
+        </div>
+        <div id="ai-result-summary" style="font-size:13px;color:var(--mid);margin-bottom:16px"></div>
+        <div id="ai-result-log" style="font-size:12px;line-height:2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Approvals tab -->
+  <div id="adm-approvals" class="adm-panel" style="display:none">
+    <div style="padding:20px">
+      <div style="font-size:13px;color:var(--mid);margin-bottom:16px">All registered users. Access is granted automatically once they confirm their email.</div>
+      <div id="approvals-list"><div style="color:var(--mid);text-align:center;padding:40px">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOGIN ══ -->
+
+
+</div>
+<style>
+.admin-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
+@media(max-width:600px){.admin-stats{grid-template-columns:repeat(2,1fr);}}
+.adm-stat { background:var(--s1); border:1px solid var(--b1); border-radius:10px; padding:16px; text-align:center; }
+.adm-stat-val { font-size:28px; font-weight:700; color:var(--blue); font-family:var(--f-mono); }
+.adm-stat-lbl { font-size:11px; color:var(--silver); margin-top:4px; text-transform:uppercase; letter-spacing:.5px; }
+.adm-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:600px){.adm-row{grid-template-columns:1fr;}}
+.adm-half { background:var(--s1); border:1px solid var(--b1); border-radius:10px; padding:16px; }
+.adm-section-title { font-size:11px; font-weight:700; color:var(--silver); text-transform:uppercase; letter-spacing:.6px; margin-bottom:12px; }
+.adm-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.adm-bar-label { font-size:11px; color:var(--hi); min-width:70px; }
+.adm-bar-track { flex:1; height:6px; background:var(--bg); border-radius:3px; overflow:hidden; }
+.adm-bar-fill { height:100%; background:var(--blue); border-radius:3px; transition:width .4s; }
+.adm-bar-count { font-size:11px; color:var(--silver); font-family:var(--f-mono); min-width:20px; text-align:right; }
+.adm-empty { font-size:12px; color:var(--silver); font-style:italic; }
+.adm-table { width:100%; border-collapse:collapse; font-size:12px; }
+.adm-table th { text-align:left; padding:8px 10px; color:var(--silver); font-size:10px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--b1); }
+.adm-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,.04); }
+.adm-badge { padding:2px 7px; border-radius:4px; font-size:10px; font-weight:700; text-transform:uppercase; }
+.badge-login { background:rgba(79,142,247,.15); color:var(--blue); }
+.badge-reg { background:rgba(0,200,83,.15); color:var(--money); }
+#admin-content { padding:20px 24px; }
+.adm-refresh { float:right; background:none; border:1px solid var(--b1); color:var(--silver); 
+  padding:4px 10px; border-radius:6px; font-size:11px; cursor:pointer; font-family:var(--f-ui); }
+.adm-refresh:hover { color:var(--hi); }
+
+/* ─── ADMIN SUB-TABS ─── */
+.adm-tabs { display:flex; gap:4px; padding:16px 20px 0; border-bottom:1px solid var(--line); margin-bottom:0; }
+.adm-tab { background:none; border:none; color:var(--mid); font-size:13px; font-family:var(--f); font-weight:500;
+  padding:8px 16px; cursor:pointer; border-radius:8px 8px 0 0; border-bottom:2px solid transparent; }
+.adm-tab.on { color:var(--blue); border-bottom:2px solid var(--blue); background:rgba(79,142,247,.06); }
+.adm-tab:hover:not(.on) { color:var(--head); }
+.adm-panel { padding:20px 24px; }
+
+/* ─── CRUD TOOLBAR ─── */
+.crud-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap; }
+.crud-left { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.crud-toolbar select, .crud-toolbar input[type=text] {
+  background:var(--s2); border:1px solid var(--line); color:var(--body);
+  padding:6px 10px; border-radius:7px; font-size:12px; font-family:var(--f); }
+
+/* ─── CRUD LAYOUT ─── */
+.crud-layout { display:flex; gap:16px; align-items:flex-start; }
+.crud-table-wrap { flex:1; overflow-x:auto; min-width:0; }
+.crud-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+.crud-tbl th { text-align:left; padding:8px 10px; color:var(--mid); font-size:10px;
+  text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--line); white-space:nowrap; }
+.crud-tbl td { padding:7px 10px; border-bottom:1px solid rgba(255,255,255,.03); color:var(--body); vertical-align:middle; }
+.crud-tbl tr:hover td { background:rgba(79,142,247,.04); cursor:pointer; }
+.crud-tbl .td-model { color:var(--head); font-weight:600; font-family:var(--fm); font-size:11px; }
+.crud-tbl .td-price { font-family:var(--fm); color:var(--money); }
+.crud-tbl .td-date { font-size:10px; color:var(--dim); }
+.crud-edit-btn { background:none; border:1px solid var(--line); color:var(--mid); padding:3px 10px;
+  border-radius:5px; font-size:11px; cursor:pointer; font-family:var(--f); }
+.crud-edit-btn:hover { color:var(--blue); border-color:var(--blue); }
+
+/* ─── INLINE EDITING ─── */
+.inline-input { background:var(--s3); border:1px solid var(--blue); color:var(--head);
+  padding:3px 6px; border-radius:5px; font-size:12px; font-family:var(--f);
+  width:100%; box-sizing:border-box; outline:none; }
+.crud-tbl td[data-field]:hover { background:rgba(79,142,247,.08); cursor:text; }
+.crud-tbl td[data-field]:hover::after { content:'✎'; font-size:9px; color:var(--dim); margin-left:4px; }
+
+/* ─── ADD MODEL MODAL ─── */
+#add-modal-overlay { align-items:center; justify-content:center; }
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:9500; align-items:center; justify-content:center; }
+.modal-overlay.on { display:flex; }
+.add-modal { background:var(--s1); border:1px solid var(--line); border-radius:14px;
+  width:520px; max-width:95vw; max-height:90vh; overflow-y:auto; }
+.add-modal-hdr { display:flex; justify-content:space-between; align-items:center;
+  padding:16px 20px; border-bottom:1px solid var(--line); }
+.add-modal-hdr span { font-weight:700; color:var(--head); font-size:14px; }
+.add-modal-body { padding:20px; }
+
+/* ─── EDIT SIDE PANEL ─── */
+.edit-panel { width:320px; min-width:300px; background:var(--s1); border:1px solid var(--line);
+  border-radius:12px; flex-shrink:0; }
+.edit-panel-hdr { display:flex; justify-content:space-between; align-items:center;
+  padding:14px 18px; border-bottom:1px solid var(--line); }
+.edit-panel-hdr span { font-weight:700; color:var(--head); font-size:13px; }
+.edit-panel-body { padding:16px 18px; }
+.ef-row { margin-bottom:12px; }
+.ef-row label { display:block; font-size:10px; color:var(--mid); font-weight:600;
+  text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+.ef-row input, .ef-row select, .ef-row textarea {
+  width:100%; background:var(--s2); border:1px solid var(--line); color:var(--body);
+  padding:7px 10px; border-radius:7px; font-size:12px; font-family:var(--f); box-sizing:border-box; }
+.ef-row textarea { resize:vertical; }
+.ef-row input:focus, .ef-row select:focus, .ef-row textarea:focus {
+  outline:none; border-color:var(--blue); }
+.ef-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+
+/* ─── AI REFRESH ─── */
+.ai-refresh-wrap { max-width:900px; }
+.ai-refresh-intro { font-size:13px; color:var(--mid); margin-bottom:20px; line-height:1.6; }
+.ai-brand-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:24px; }
+.ai-brand-tile { background:var(--s1); border:1px solid var(--line); border-radius:12px; padding:16px;
+  display:flex; flex-direction:column; gap:10px; }
+.ai-brand-tile-name { font-weight:700; color:var(--head); font-size:13px; }
+.ai-brand-tile-count { font-size:11px; color:var(--mid); }
+.ai-run-btn { background:rgba(79,142,247,.12); border:1px solid rgba(79,142,247,.3);
+  color:var(--blue); padding:6px 12px; border-radius:7px; font-size:12px; cursor:pointer; font-family:var(--f); font-weight:600; }
+.ai-run-btn:hover:not(:disabled) { background:rgba(79,142,247,.22); }
+.ai-run-btn:disabled { opacity:.4; cursor:not-allowed; }
+@keyframes pulse-blue { 0%,100%{opacity:.6} 50%{opacity:1} }
+.ai-run-btn.running { animation:pulse-blue 1.2s infinite; }
+
+/* ─── DIFF PANEL ─── */
+.diff-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.diff-hdr span { font-weight:700; color:var(--head); font-size:14px; }
+.diff-table { width:100%; border-collapse:collapse; font-size:12px; }
+.diff-table th { text-align:left; padding:8px 10px; color:var(--mid); font-size:10px;
+  text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--line); }
+.diff-table td { padding:7px 10px; border-bottom:1px solid rgba(255,255,255,.03); vertical-align:top; }
+.diff-row-new td { background:rgba(0,200,83,.05); }
+.diff-row-del td { background:rgba(239,68,68,.05); }
+.diff-row-mod td { background:rgba(251,191,36,.05); }
+.diff-tag { font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; }
+.tag-new { background:rgba(0,200,83,.2); color:#00c853; }
+.tag-del { background:rgba(239,68,68,.2); color:#f87171; }
+.tag-mod { background:rgba(251,191,36,.2); color:#fbbf24; }
+.diff-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
+.diff-old-val { color:var(--dim); text-decoration:line-through; font-size:11px; }
+.diff-new-val { color:var(--money); font-size:11px; }
+/* ─── LOADING OVERLAY ─── */
+#db-loading { position:fixed; inset:0; background:var(--bg); z-index:9999;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+.db-spinner { width:40px; height:40px; border:3px solid var(--line); border-top-color:var(--blue);
+  border-radius:50%; animation:spin .8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+@keyframes shake-field { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
+.shake-field { animation:shake-field .4s ease; }
+</style>
+
+<style>
+.ryaview-footer {
+  text-align:center; padding:20px 24px 32px; font-size:11px; color:var(--silver);
+  border-top:1px solid var(--b1); margin-top:32px; line-height:1.8;
+}
+.ryaview-footer a { color:var(--blue); text-decoration:none; }
+</style>
+
+<script>
+
+/* ═══════════════════════════════════════════════════════
+   SUPABASE CONFIG — paste your keys here
+═══════════════════════════════════════════════════════ */
+const SUPABASE_URL  = 'https://ssytbjfhjuhgnvgdvgkh.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ';
+const ADMIN_EMAIL   = 'vmsusheel@gmail.com';
+// Anthropic key is stored securely in Netlify environment — never exposed in browser
+
+/* ── LIVE FOREX — powered by Claude web search ── */
+let LIVE_FOREX_RATE = 92.28;  // fallback if API unavailable
+
+async function fetchForex() {
+  const badge = document.getElementById('forex-rate');
+  const time  = document.getElementById('forex-time');
+  if (badge) { badge.textContent = '₹…'; badge.style.opacity = '0.5'; }
+
+  try {
+    const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': 'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 64,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{
+          role: 'user',
+          content: 'What is the current USD to INR exchange rate today? Reply with ONLY a single number like 92.45 — nothing else.'
+        }]
+      })
+    });
+
+    const data = await res.json();
+
+    // Extract the final text reply from content blocks
+    const textBlock = (data.content || []).filter(b => b.type === 'text').pop();
+    const raw = textBlock?.text?.trim() || '';
+    const rate = parseFloat(raw.replace(/[^0-9.]/g, ''));
+
+    if (rate && rate > 70 && rate < 110) {
+      LIVE_FOREX_RATE = Math.round(rate * 100) / 100;
+      if (badge) {
+        badge.textContent = '₹' + LIVE_FOREX_RATE.toFixed(2);
+        badge.style.opacity = '1';
+        badge.title = 'Live rate via Claude AI web search';
+      }
+      if (time) time.textContent = 'live · ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+    } else {
+      throw new Error('Rate out of range: ' + raw);
+    }
+
+  } catch(e) {
+    // Fallback: show last known rate
+    if (badge) {
+      badge.textContent = '₹' + LIVE_FOREX_RATE.toFixed(2);
+      badge.style.opacity = '1';
+    }
+    if (time) time.textContent = 'last known rate';
+    console.warn('Forex fetch failed:', e.message);
+  }
+}
+
+// Fetch on page load after auth
+window.addEventListener('DOMContentLoaded', () => setTimeout(fetchForex, 1000));
+const SESSION_MINS  = 30;  // 30 min inactivity auto-logout
+
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: {
+    persistSession: false,   // session lives in memory only — closing tab = logged out
+    autoRefreshToken: true,  // keep token alive during active session
+    detectSessionInUrl: true
+  }
+});
+let _sessionTimer = null;
+let _warnTimer    = null;
+let _currentUser  = null;
+
+/* ── AUTH TAB SWITCH ── */
+function authTab(t) {
+  document.getElementById('form-login').style.display    = t==='login'    ? '' : 'none';
+  document.getElementById('form-register').style.display = t==='register' ? '' : 'none';
+  document.getElementById('tab-login').classList.toggle('on',    t==='login');
+  document.getElementById('tab-register').classList.toggle('on', t==='register');
+}
+
+/* ── REGISTER ── */
+async function doRegister() {
+  const name  = document.getElementById('rg-name').value.trim();
+  const email = document.getElementById('rg-email').value.trim().toLowerCase();
+  const pass  = document.getElementById('rg-pass').value;
+  const msg   = document.getElementById('rg-msg');
+  const btn   = document.getElementById('rg-btn');
+
+  if (!name)  { setMsg(msg,'err','Please enter your name.'); return; }
+  if (!email) { setMsg(msg,'err','Please enter your Gmail address.'); return; }
+  if (!email.endsWith('@gmail.com')) {
+    setMsg(msg,'err','ryaview.ai is currently available to Gmail users only.'); return;
+  }
+  if (pass.length < 8) { setMsg(msg,'err','Password must be at least 8 characters.'); return; }
+
+  btn.disabled = true; btn.textContent = 'Creating account...';
+  const { data, error } = await _sb.auth.signUp({ email, password: pass,
+    options: { data: { full_name: name } }
+  });
+  btn.disabled = false; btn.textContent = 'Create Account';
+  if (error) { setMsg(msg,'err', error.message); return; }
+  setMsg(msg,'ok','✅ Account created! We have sent a confirmation email to ' + email + '. Please click the link in that email first, then come back here and Sign In. Your account will also need admin approval before you can access ryaview.');
+  await logEvent(data.user, 'register');
+  // Insert into registrations table as pending
+  await _sb.from('registrations').upsert({ email, name, status: 'approved', registered_at: new Date().toISOString() });
+}
+
+/* ── LOGIN ── */
+function showForgot() {
+  const panel = document.getElementById('forgot-panel');
+  const email = document.getElementById('li-email')?.value || '';
+  if (email) document.getElementById('forgot-email').value = email;
+  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+
+async function doForgotPassword() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const btn   = document.getElementById('forgot-btn');
+  const msg   = document.getElementById('forgot-msg');
+
+  if (!email) { setMsg(msg, 'err', 'Please enter your Gmail address.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  setMsg(msg, '', '');
+
+  const { error } = await _sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Send Reset Link';
+
+  if (error) {
+    setMsg(msg, 'err', error.message);
+  } else {
+    setMsg(msg, 'ok', '✓ Reset link sent — check your inbox (and spam folder).');
+    document.getElementById('forgot-email').value = '';
+  }
+}
+
+// ── Brute-force lockout tracker (in-memory) ──
+const _loginAttempts = {};  // { email: { count, lockedUntil } }
+const MAX_ATTEMPTS   = 5;
+const LOCKOUT_MINS   = 15;
+
+function isLockedOut(email) {
+  const a = _loginAttempts[email];
+  if (!a || !a.lockedUntil) return false;
+  if (Date.now() < a.lockedUntil) return true;
+  // Lockout expired — reset
+  delete _loginAttempts[email];
+  return false;
+}
+
+function recordFailedAttempt(email) {
+  if (!_loginAttempts[email]) _loginAttempts[email] = { count: 0, lockedUntil: null };
+  _loginAttempts[email].count++;
+  if (_loginAttempts[email].count >= MAX_ATTEMPTS) {
+    _loginAttempts[email].lockedUntil = Date.now() + LOCKOUT_MINS * 60 * 1000;
+    // Log lockout event to Supabase
+    try { _sb.from('login_events').insert({ email, event_type: 'lockout', metadata: { attempts: MAX_ATTEMPTS, ts: new Date().toISOString() } }); } catch(e) {}
+  }
+}
+
+function clearAttempts(email) {
+  delete _loginAttempts[email];
+}
+
+function startLockoutCountdown(email, msg) {
+  const tick = () => {
+    const a = _loginAttempts[email];
+    if (!a || !a.lockedUntil) return;
+    const remaining = Math.ceil((a.lockedUntil - Date.now()) / 60000);
+    if (remaining <= 0) {
+      clearAttempts(email);
+      setMsg(msg, 'err', 'Account unlocked — you can try again.');
+      return;
+    }
+    setMsg(msg, 'err', `🔒 Too many failed attempts — account locked for ${remaining} minute${remaining !== 1 ? 's' : ''}. Try again later.`);
+    setTimeout(tick, 30000);  // update every 30s
+  };
+  tick();
+}
+
+async function doLogin() {
+  const email = document.getElementById('li-email').value.trim().toLowerCase();
+  const pass  = document.getElementById('li-pass').value;
+  const msg   = document.getElementById('li-msg');
+  const btn   = document.getElementById('li-btn');
+
+  if (!email.endsWith('@gmail.com')) {
+    setMsg(msg,'err','ryaview.ai is currently available to Gmail users only.'); return;
+  }
+
+  // ── Check lockout BEFORE attempting ──
+  if (isLockedOut(email)) {
+    startLockoutCountdown(email, msg); return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Signing in...';
+
+  try {
+    const { data, error } = await _sb.auth.signInWithPassword({ email, password: pass });
+
+    if (error) {
+      recordFailedAttempt(email);
+      const a = _loginAttempts[email];
+      const remaining = MAX_ATTEMPTS - (a?.count || 0);
+      if (isLockedOut(email)) {
+        startLockoutCountdown(email, msg);
+      } else {
+        setMsg(msg, 'err', `Incorrect email or password. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining before lockout.`);
+      }
+      return;
+    }
+
+    // ── Check email confirmation ──
+    if (data.user.email !== ADMIN_EMAIL) {
+      if (!data.user.email_confirmed_at) {
+        await _sb.auth.signOut();
+        setMsg(msg,'err','📧 Please confirm your email first — check your Gmail inbox and click the link, then sign in again.');
+        return;
+      }
+    }
+
+    // ── Success ──
+    clearAttempts(email);
+    _currentUser = data.user;
+    try { await logEvent(data.user, 'login'); } catch(e) {}  // don't block on log failure
+    onAuthSuccess(data.user);
+
+  } catch(err) {
+    // Network or unexpected error — never leave button stuck
+    setMsg(msg, 'err', 'Connection error — please check your internet and try again.');
+    console.error('Login error:', err);
+  } finally {
+    // ALWAYS reset button — no matter what happens above
+    btn.disabled = false; btn.textContent = 'Sign In';
+  }
+}
+
+/* ── LOGOUT ── */
+async function doLogout() {
+  clearSessionTimers();
+  await _sb.auth.signOut();
+  _currentUser = null;
+  document.getElementById('auth-overlay').style.display = 'flex';
+  document.getElementById('shell').style.display = 'none';
+}
+
+/* ── ON AUTH SUCCESS ── */
+function onAuthSuccess(user) {
+  _currentUser = user;
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('shell').style.display = '';
+  const emailEl = document.getElementById('hdr-email');
+  if (emailEl) emailEl.textContent = user.email;
+  // Show/hide admin nav
+  const adminNav = document.getElementById('nt-admin');
+  const adminDemo = null;
+  if (user.email !== ADMIN_EMAIL) {
+    if (adminNav) adminNav.style.display = 'none';
+    if (adminDemo) adminDemo.style.display = 'none';
+  } else {
+    loadAdminData();
+  }
+  startSessionTimer();
+  // Set today's date in BOQ date field
+  const dateField = document.getElementById('proj-date');
+  if (dateField && !dateField.value) dateField.value = new Date().toISOString().slice(0,10);
+  // Pre-fill prepared by
+  const byField = document.getElementById('proj-by');
+  if (byField && !byField.value && user.user_metadata?.full_name) {
+    byField.value = user.user_metadata.full_name;
+  }
+}
+
+/* ── SESSION TIMER ── */
+function startSessionTimer() {
+  clearSessionTimers();
+  const WARN_BEFORE_MINS = 5;
+  const warnAt   = (SESSION_MINS - WARN_BEFORE_MINS) * 60 * 1000;
+  const logoutAt = SESSION_MINS * 60 * 1000;
+
+  _warnTimer = setTimeout(() => {
+    const w = document.getElementById('session-warn');
+    if (w) w.style.display = 'block';
+    let mins = WARN_BEFORE_MINS;
+    const el = document.getElementById('warn-mins');
+    if (el) el.textContent = mins;
+    const countdown = setInterval(() => {
+      mins--;
+      if (el) el.textContent = mins;
+      if (mins <= 0) clearInterval(countdown);
+    }, 60000);
+  }, warnAt);
+
+  _sessionTimer = setTimeout(() => {
+    showToast('Session expired — you have been signed out.');
+    setTimeout(doLogout, 1500);
+  }, logoutAt);
+}
+
+function clearSessionTimers() {
+  if (_sessionTimer) clearTimeout(_sessionTimer);
+  if (_warnTimer)    clearTimeout(_warnTimer);
+  const w = document.getElementById('session-warn');
+  if (w) w.style.display = 'none';
+}
+
+// ── Reset inactivity timer on any user interaction ──
+['click','keydown','scroll','mousemove','touchstart'].forEach(ev =>
+  document.addEventListener(ev, () => { if (_currentUser) startSessionTimer(); }, { passive:true })
+);
+
+// ── Sign out when tab/window is closed ──
+window.addEventListener('beforeunload', () => {
+  if (_currentUser) {
+    // Best-effort synchronous signout on close
+    // navigator.sendBeacon is fire-and-forget — more reliable than fetch on unload
+    const url = 'https://ssytbjfhjuhgnvgdvgkh.supabase.co/auth/v1/logout';
+    navigator.sendBeacon(url, JSON.stringify({}));
+    _sb.auth.signOut();  // also call async (may not complete but attempts it)
+  }
+});
+
+// ── Sign out if tab is hidden for more than 30 mins ──
+let _hiddenTimer = null;
+document.addEventListener('visibilitychange', () => {
+  if (!_currentUser) return;
+  if (document.hidden) {
+    // Tab went to background — start a 30-min hidden timer
+    _hiddenTimer = setTimeout(() => {
+      _sb.auth.signOut().then(() => {
+        _currentUser = null;
+        clearSessionTimers();
+        // When user returns to tab they will see auth overlay
+        const overlay = document.getElementById('auth-overlay');
+        if (overlay) overlay.style.display = 'flex';
+        showToast('Signed out due to inactivity.');
+      });
+    }, 30 * 60 * 1000);
+  } else {
+    // Tab came back to foreground — cancel hidden timer
+    if (_hiddenTimer) { clearTimeout(_hiddenTimer); _hiddenTimer = null; }
+    // Reset inactivity timer since user is back
+    startSessionTimer();
+  }
+});
+
+/* ── LOG EVENT ── */
+async function logEvent(user, type) {
+  if (!user) return;
+  try {
+    await _sb.from('login_events').insert({
+      user_id: user.id, email: user.email,
+      role: user.email === ADMIN_EMAIL ? 'admin' : 'user',
+      event_type: type,
+      user_agent: navigator.userAgent.slice(0,200)
+    });
+  } catch(e) { console.log('Log error:', e); }
+}
+
+async function logUsage(action, detail) {
+  if (!_currentUser) return;
+  try {
+    await _sb.from('usage_events').insert({
+      user_id: _currentUser.id, email: _currentUser.email,
+      action, detail
+    });
+  } catch(e) {}
+}
+
+/* ── HELPER ── */
+function setMsg(el, type, text) {
+  el.textContent = text;
+  el.className = 'auth-msg ' + type;
+}
+
+/* ── CHECK SESSION ON LOAD ── */
+(async () => {
+  const { data } = await _sb.auth.getSession();
+  if (data?.session?.user) {
+    onAuthSuccess(data.session.user);
+  } else {
+    document.getElementById('shell').style.display = 'none';
+    document.getElementById('auth-overlay').style.display = 'flex';
+  }
+})();
+
+/* ── SIGN OUT BUTTON ── */
+document.querySelector('.btn-signout')?.addEventListener('click', doLogout);
+
+
+
+// BOQ_DB is loaded from Supabase at runtime — see loadCamerasDB()
+let BOQ_DB = {};
+
+
+
+/* ── PAGE NAV ── */
+function sw(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  // demo bar removed
+  document.querySelectorAll('.nt').forEach(t => t.classList.remove('on'));
+  document.getElementById('page-' + id).classList.add('on');
+  if (btn) btn.classList.add('on');
+  const nt = document.getElementById('nt-' + id);
+  if (nt) nt.classList.add('on');
+}
+
+/* ── MODEL LISTS ── */
+// MODELS is built after Supabase load — see buildRuntimeDB()
+let MODELS = {};
+/* ── CAMERA DATABASE ── */
+const BRAND_DEFAULTS = {
+  'Axis':      { country:'Sweden', warranty:5, warrantyType:'Return to base', codecs:['H.265','H.264','Zipstream'], saving:'~50% less vs H.264', compressionNote:'Zipstream adapts bitrate to scene activity — in quiet parking lots can drop below 1.5 GB/hr', storageBase:'~3–5', storageNum:4, verdict:'Best-in-class cybersecurity. AXIS OS hardened OS + TPM 2.0 chip on every model. Largest global ecosystem & partner network.' },
+  'Hikvision': { country:'China', warranty:2, warrantyType:'Return to base', codecs:['H.265+','H.265','H.264+','H.264'], saving:'~75% less vs H.264', compressionNote:'H.265+ is Hikvision proprietary smart codec — ignores unchanging background pixels, not just compresses them', storageBase:'~1.5–3', storageNum:2, verdict:'Unbeatable value per rupee. H.265+ gives the lowest NVR storage bill. AcuSense deep-learning cuts nuisance alarms by over 90%.' },
+  'Hanwha':    { country:'South Korea', warranty:3, warrantyType:'Return to base', codecs:['H.265','H.264','WiseStream II'], saving:'~50% less vs H.264', compressionNote:'WiseStream II analyses each region — keeps subjects sharp, aggressively compresses static background', storageBase:'~3–5', storageNum:3.5, verdict:'Premium Korean engineering. FIPS 140-2 cybersecurity. WiseStream II cuts NVR bandwidth. Deep Wisenet AI analytics.' },
+  'Bosch':     { country:'Germany', warranty:2, warrantyType:'Return to base', codecs:['H.265','H.264'], saving:'~40% less vs H.264', compressionNote:'Standard H.265 — no proprietary smart codec. Plan NVR storage accordingly. iSCSI support for enterprise NAS integration.', storageBase:'~4–6', storageNum:5, verdict:'Enterprise-grade German engineering. IVA Pro analytics best for complex sites. Strongest ONVIF compliance for multi-vendor setups.' },
+  'CP Plus':   { country:'China / India (assembly)', warranty:2, warrantyType:'Return to base (India service centres)', codecs:['H.265+','H.265','H.264+'], saving:'~70% less vs H.264', compressionNote:'H.265+ at budget price — the best storage-saving performance in the affordable segment', storageBase:'~2–3', storageNum:2.5, verdict:'Best entry price in the market. H.265+ keeps NVR costs low. Good for large-scale deployments where budget is the primary constraint.' },
+  'Honeywell': { country:'USA (manufactured in China)', warranty:2, warrantyType:'Return to base', codecs:['H.265','H.264'], saving:'~40% less vs H.264', compressionNote:'Standard H.265 — no proprietary enhancement. Good for regulated environments that require non-Chinese brand-of-record.', storageBase:'~4–5', storageNum:4.5, verdict:'Brand-of-record for regulated and government projects. Solid integration with Honeywell Pro-Watch and WIN-PAK access control.' },
+  'i-PRO':     { country:'Japan', warranty:3, warrantyType:'Return to base (Panasonic service network)', codecs:['H.265','H.264','Smart Coding'], saving:'~55% less vs H.264', compressionNote:'i-PRO Smart Coding uses AI on the camera itself to reduce bitrate only on background regions — foreground subjects retained at full quality.', storageBase:'~2–4', storageNum:3, verdict:'AI-native Japanese engineering. On-camera inferencing without NVR dependency. Strong Panasonic legacy credibility in enterprise and government bids. Rapidly growing in Indian smart city and critical infra projects.' },
+  'Pelco':     { country:'USA (design) / China (manufacturing)', warranty:2, warrantyType:'Return to base', codecs:['H.265','H.264'], saving:'~40% less vs H.264', compressionNote:'Standard H.265. Pelco strength is integration depth with VideoXpert and Endura VMS platforms.', storageBase:'~1–3', storageNum:2, verdict:'Legacy enterprise brand. Best chosen when the project already runs VideoXpert VMS. Pricing has improved significantly post-Motorola acquisition.' },
+  'Matrix':    { country:'India', warranty:3, warrantyType:'Return to base (Pan-India service)', codecs:['H.265','H.264'], saving:'~40% less vs H.264', compressionNote:'Standard H.265. Full Make-in-India manufacturing — eligible for government procurement preferences and BIS certification projects.', storageBase:'~1–2', storageNum:1.5, verdict:'Best choice for government/PSU tenders requiring Make-in-India. 3-year warranty + pan-India support network. Competitive pricing.' },
+  'Sparsh':    { country:'India', warranty:3, warrantyType:'Return to base (Pan-India service)', codecs:['H.265','H.264'], saving:'~40% less vs H.264', compressionNote:'Standard H.265. Make-in-India product line qualifies for government PLI scheme benefits and domestic procurement policies.', storageBase:'~1–2', storageNum:1.5, verdict:'Indian brand with Make-in-India compliance. Good for Smart City and government projects. Growing channel support across India.' }
+};
+
+// CAMERA_DB is built after Supabase load — see buildRuntimeDB()
+let CAMERA_DB = {};
+/* ── MODEL SELECTOR HELPERS ── */
+function loadModels(slot) {
+  const brand = document.getElementById('b'+slot).value;
+  const msel  = document.getElementById('m'+slot);
+  msel.innerHTML = '<option value="">— select model —</option>';
+  if (!brand || !MODELS[brand]) { document.getElementById('info'+slot).textContent = ''; return; }
+
+  MODELS[brand].forEach(m => {
+    const parts = m.split('|');
+    const opt = document.createElement('option');
+    opt.value = m; opt.textContent = parts[0]+' · '+parts[1]+' · '+parts[2];
+    msel.appendChild(opt);
+  });
+
+  // Slot 1 — just pick first model
+  if (slot === 1) {
+    msel.selectedIndex = 1;
+    updateInfo(1);
+    return;
+  }
+
+  // Slots 2–5 — auto-match against slot 1's current selection
+  const ref = document.getElementById('m1').value;
+  if (ref) {
+    const [refModel, refType, refRes] = ref.split('|');
+    const match = findBestMatch(brand, refType, refRes);
+    if (match) {
+      // Find the option whose value starts with this model name
+      const opt = Array.from(msel.options).find(o => o.value.startsWith(match.m + '|'));
+      if (opt) { msel.value = opt.value; updateInfo(slot); return; }
+    }
+  }
+  // Fallback — pick first model
+  msel.selectedIndex = 1;
+  updateInfo(slot);
+}
+function updateInfo(slot) {
+  const val = document.getElementById('m'+slot).value;
+  const info = document.getElementById('info'+slot);
+  if (val) { const p=val.split('|'); info.textContent=p[0]+' · '+p[1]+' · '+p[2]; }
+
+  // When slot 1 model changes, force re-match all other populated slots
+  if (slot === 1 && val) {
+    const parts = val.split('|');
+    const refType = parts[1];
+    const refRes  = parts[2];
+    for (let s = 2; s <= 5; s++) {
+      const bsel = document.getElementById('b'+s);
+      if (!bsel || !bsel.value) continue;
+      // Force reload models for this slot — it will auto-match against slot 1
+      loadModels(s);
+    }
+  }
+}
+
+/* ── COMPARE NOW ── */
+function getCamSpec(brand, modelKey) {
+  const bd = BRAND_DEFAULTS[brand] || {};
+  const md = (CAMERA_DB[brand] || {})[modelKey] || {};
+  return {
+    brand, model: modelKey,
+    type:        md.type || '—',
+    res:         md.res  || '—',
+    lowLight:    md.lowLight || 3,
+    priceNum:    md.price || 0,
+    price:       md.price ? '₹ '+md.price.toLocaleString('en-IN') : '—',
+    warranty:    bd.warranty || 2,
+    warrantyType:bd.warrantyType || 'Return to base',
+    codecs:      bd.codecs || ['H.265','H.264'],
+    saving:      bd.saving || '~40% less vs H.264',
+    compressionNote: bd.compressionNote || '',
+    storageBase: bd.storageBase || '~3–5',
+    storageNum:  bd.storageNum || 4,
+    storageNote: bd.compressionNote || '',
+    ai:          md.ai || [],
+    country:     bd.country || '—',
+    verdict:     bd.verdict || ''
+  };
+}
+
+function stars(n) {
+  return '<span class="stars">' + '★'.repeat(n) + '</span><span class="stardim">' + '★'.repeat(5-n) + '</span>';
+}
+
+/* ══════════════════════════════════════════════
+   AXIS USP TRUST FACTORS
+   These are factual, verifiable advantages that
+   spec sheets alone cannot capture.
+═══════════════════════════════════════════════ */
+const AXIS_TRUST = {
+  psirt:      { label:'PSIRT Team', detail:'Dedicated Product Security Incident Response Team — publicly tracks and patches every CVE. No other surveillance brand does this.' },
+  axisOS:     { label:'AXIS OS', detail:'Purpose-built, hardened operating system with a regular patch schedule. Competitors run generic Linux with no lifecycle commitment.' },
+  tpm:        { label:'TPM 2.0 Secure Boot', detail:'Hardware-level tamper-proof chip on every camera — cryptographically verifies firmware on every boot. Competitors do not ship this at scale.' },
+  noBan:      { label:'Zero Government Ban Risk', detail:'Hikvision and Dahua are banned in US federal procurement and multiple EU tenders. Axis has zero such restrictions — safe for hospital, airport and PSU bids.' },
+  warranty5:  { label:'5-Year Warranty', detail:'Only brand in India offering 5 years as standard. Industry average is 2 years — that is 3 extra years of zero replacement cost built into the TCO.' },
+  ecosystem:  { label:'Open Ecosystem (70,000+ integrations)', detail:'Largest open-standard ecosystem in the industry. No VMS lock-in. Compatible with every major access control, VMS and analytics platform.' },
+  wdr:        { label:'Forensic WDR 120dB', detail:'Industry-leading backlit scene handling — entrance lobbies, parking exits, window-facing corridors. Competitors average 90–100dB.' },
+  zipstream:  { label:'Zipstream — Intelligent Compression', detail:'Reduces storage without degrading forensic-quality frames. Dynamically drops bitrate in static scenes; preserves full detail on motion events.' }
+};
+
+/* ══════════════════════════════════════════════
+   WEIGHTED SCORING ENGINE
+   Weights must sum to 100. Axis gets a +8 trust
+   bonus applied after raw scoring — enough to tip
+   close comparisons, not enough to override a
+   clear winner on specs.
+═══════════════════════════════════════════════ */
+// Detect client sensitivity level from project meta
+function getClientMode() {
+  const client = (document.getElementById('proj-client')?.value || '').toLowerCase();
+  const site   = (document.getElementById('proj-site')?.value   || '').toLowerCase();
+  const combined = client + ' ' + site;
+  const govtKeywords = ['drdo','defence','defense','ministry','government','govt','army','navy','air force','nia','isro','bsf','crpf','cisf','nsg','ib ','raw ','psu','bhel','ntpc','ongc','hpcl','bpcl','iocl','coal india','nhpc','hal','bel','beml','ordnance','police','judiciary','high court','supreme court','rbi','sebi','nabard','airport authority','aai','aiims','pgi','sgpgi','all india institute'];
+  const isGovt = govtKeywords.some(k => combined.includes(k));
+  return isGovt ? 'govt' : 'commercial';
+}
+
+function scoreCamera(cam, allCams, clientMode) {
+  const maxPrice   = Math.max(...allCams.filter(c=>c.priceNum>0).map(c=>c.priceNum));
+  const minPrice   = Math.min(...allCams.filter(c=>c.priceNum>0).map(c=>c.priceNum));
+  const maxAI      = Math.max(...allCams.map(c=>c.ai.length));
+  const maxWar     = Math.max(...allCams.map(c=>c.warranty));
+  const minStor    = Math.min(...allCams.map(c=>c.storageNum));
+  const maxStor    = Math.max(...allCams.map(c=>c.storageNum));
+  const maxLL      = Math.max(...allCams.map(c=>c.lowLight));
+
+  // Parse compression saving % from string like '~50% less vs H.264'
+  const savingPct  = parseInt((cam.saving||'0').replace(/[^0-9]/g,'')) || 0;
+  const maxSaving  = Math.max(...allCams.map(c=>parseInt((c.saving||'0').replace(/[^0-9]/g,''))||0));
+
+  // Normalise each dimension to 0–1
+  const priceRange  = maxPrice - minPrice || 1;
+  const storRange   = maxStor  - minStor  || 1;
+
+  const s_value     = cam.priceNum > 0 ? 1 - (cam.priceNum - minPrice) / priceRange : 0.5;
+  const s_lowLight  = cam.lowLight  / maxLL;
+  const s_storage   = (maxStor - cam.storageNum) / storRange;  // lower = better
+  const s_warranty  = cam.warranty / maxWar;
+  const s_ai        = maxAI > 0 ? cam.ai.length / maxAI : 0;
+  const s_compress  = maxSaving > 0 ? savingPct / maxSaving : 0;
+
+  // Trust score — weighted by client sensitivity
+  // Govt/Defence mode: China-origin cameras get heavily penalised, Axis leads on security
+  const isGovtMode = clientMode === 'govt';
+
+  let s_trust = 0;
+  const isChineseOrigin = ['Hikvision','CP Plus'].includes(cam.brand) ||
+    (cam.brand === 'Pelco' && (cam.country||'').toLowerCase().includes('china'));
+
+  if (cam.brand === 'Axis') {
+    s_trust = 1.0;
+  } else if (cam.brand === 'i-PRO') {
+    s_trust = isGovtMode ? 0.80 : 0.65;  // Japan origin — trusted in govt
+  } else if (['Hanwha','Bosch'].includes(cam.brand)) {
+    s_trust = isGovtMode ? 0.70 : 0.65;
+  } else if (cam.brand === 'Honeywell') {
+    s_trust = isGovtMode ? 0.65 : 0.55;
+  } else if (cam.brand === 'Pelco') {
+    s_trust = isGovtMode ? (isChineseOrigin ? 0.10 : 0.55) : 0.55;
+  } else if (['Matrix','Sparsh'].includes(cam.brand)) {
+    s_trust = isGovtMode ? 0.60 : 0.45;  // Make-in-India benefit in govt
+  } else {
+    s_trust = isGovtMode ? 0.05 : 0.25;  // Hikvision/CP Plus — near-disqualified in govt
+  }
+
+  // In govt mode: trust dominates (30pts), specs reduced proportionally
+  // In commercial mode: normal weights
+  let raw, trustBonus;
+  if (isGovtMode) {
+    raw =
+      s_value    * 15 +
+      s_lowLight * 15 +
+      s_storage  * 13 +
+      s_warranty * 12 +
+      s_ai       * 10 +
+      s_compress * 5;
+    trustBonus = s_trust * 30;  // Trust is the dominant factor for govt
+  } else {
+    raw =
+      s_value    * 22 +
+      s_lowLight * 20 +
+      s_storage  * 18 +
+      s_warranty * 15 +
+      s_ai       * 15 +
+      s_compress * 10;
+    trustBonus = s_trust * 8;
+  }
+
+  const total = Math.min(100, raw + trustBonus);
+
+  return {
+    raw: Math.round(raw),
+    trustBonus: Math.round(trustBonus),
+    total: Math.round(total),
+    breakdown: {
+      value:    Math.round(s_value    * (isGovtMode?15:22)),
+      lowLight: Math.round(s_lowLight * (isGovtMode?15:20)),
+      storage:  Math.round(s_storage  * (isGovtMode?13:18)),
+      warranty: Math.round(s_warranty * (isGovtMode?12:15)),
+      ai:       Math.round(s_ai       * (isGovtMode?10:15)),
+      compress: Math.round(s_compress * (isGovtMode?5:10)),
+      trust:    Math.round(trustBonus)
+    }
+  };
+}
+
+function buildWinnerCard(winner, score, allCams, aiReasons) {
+  const isAxis     = winner.brand === 'Axis';
+  const accentColor= isAxis ? 'var(--blue)' : 'var(--money)';
+  const accentBg   = isAxis ? 'rgba(79,142,247,0.06)' : 'rgba(0,200,83,0.05)';
+  const accentBdr  = isAxis ? 'rgba(79,142,247,0.2)'  : 'rgba(0,200,83,0.15)';
+
+  const bd = score.breakdown;
+  const bars = [
+    { label:'Value',       val:bd.value,    max:22, color:'#7aadfa' },
+    { label:'Low Light',   val:bd.lowLight, max:20, color:'#a78bfa' },
+    { label:'Storage Eff.',val:bd.storage,  max:18, color:'#34d399' },
+    { label:'Warranty',    val:bd.warranty, max:15, color:'#fbbf24' },
+    { label:'AI Features', val:bd.ai,       max:15, color:'#f472b6' },
+    { label:'Compression', val:bd.compress, max:10, color:'#22d3ee' },
+    { label:'Trust Index', val:bd.trust,    max:8,  color: isAxis ? '#4f8ef7' : '#6b85a8' }
+  ];
+
+  const barsHtml = bars.map(b => `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <div style="font-size:9px;font-family:var(--fm);color:var(--dim);width:86px;text-align:right;flex-shrink:0">${b.label}</div>
+      <div style="flex:1;background:rgba(255,255,255,0.04);border-radius:3px;height:5px;overflow:hidden">
+        <div style="width:${Math.round(b.val/b.max*100)}%;height:100%;background:${b.color};border-radius:3px;transition:width .6s ease"></div>
+      </div>
+      <div style="font-size:9px;font-family:var(--fm);color:var(--mid);width:26px;flex-shrink:0">${b.val}/${b.max}</div>
+    </div>`).join('');
+
+  const reasonsHtml = aiReasons
+    ? aiReasons.map(r=>`<div style="display:flex;gap:8px;margin-bottom:3px"><span style="color:${accentColor};flex-shrink:0;margin-top:2px">✓</span><span>${r}</span></div>`).join('')
+    : `<div style="display:flex;align-items:center;gap:8px;color:var(--mid);font-size:11px">
+        <svg style="animation:spin 1s linear infinite;width:14px;height:14px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        AI is analysing these cameras…
+      </div>`;
+
+  // Axis USP pills (restored — this is an Axis internal tool)
+  let uspHtml = '';
+  if (isAxis) {
+    const usps = Object.values(AXIS_TRUST);
+    uspHtml = `
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(79,142,247,0.1)">
+      <div style="font-size:9px;font-family:var(--fm);color:var(--blue2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">Why Axis wins beyond the spec sheet</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${usps.map(u=>`
+          <div class="usp-pill" title="${u.detail}" style="padding:5px 10px;background:rgba(79,142,247,0.07);border:1px solid rgba(79,142,247,0.18);border-radius:5px;font-size:9.5px;font-family:var(--fm);color:var(--blue2);cursor:default;transition:all .15s" onmouseenter="this.style.background='rgba(79,142,247,0.14)'" onmouseleave="this.style.background='rgba(79,142,247,0.07)'">
+            <span style="color:var(--blue);margin-right:4px">●</span>${u.label}
+          </div>`).join('')}
+      </div>
+      <div style="font-size:9px;color:var(--dim);margin-top:8px;font-family:var(--fm)">Hover each pill for details · These are verified, factual advantages — not marketing claims</div>
+    </div>`;
+  }
+
+  return `
+  <div style="background:${accentBg};border:1px solid ${accentBdr};border-radius:12px;padding:22px 26px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:-60px;right:-60px;width:240px;height:240px;background:radial-gradient(circle,${isAxis?'rgba(79,142,247,0.06)':'rgba(0,200,83,0.05)'} 0%,transparent 70%);pointer-events:none"></div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+          <div style="font-size:9px;font-family:var(--fm);color:${accentColor};text-transform:uppercase;letter-spacing:.12em;font-weight:600">⬡ ryaview recommends</div>
+          <div style="padding:2px 8px;background:${accentColor};border-radius:3px;font-size:8px;font-family:var(--fm);color:#0b0e14;font-weight:700;letter-spacing:.05em">BEST OVERALL</div>
+        </div>
+        <div style="font-size:22px;font-weight:800;color:var(--head);letter-spacing:-.03em;line-height:1.1;margin-bottom:2px">${winner.brand} <span style="color:${accentColor}">${winner.model}</span></div>
+        <div style="font-size:11px;font-family:var(--fm);color:var(--mid);margin-bottom:14px">${winner.type} · ${winner.res} · ${winner.country}</div>
+        <div id="winner-reasons" style="font-size:12px;color:var(--body);line-height:1.7;max-width:560px">${reasonsHtml}</div>
+      </div>
+      <div style="min-width:220px">
+        <div style="text-align:center;margin-bottom:14px">
+          <div style="font-size:42px;font-weight:800;color:${accentColor};font-family:var(--fm);line-height:1;letter-spacing:-.04em">${score.total}</div>
+          <div style="font-size:9px;font-family:var(--fm);color:var(--dim);text-transform:uppercase;letter-spacing:.1em">/ 108 total score</div>
+          ${isAxis?`<div style="font-size:8.5px;font-family:var(--fm);color:var(--blue2);margin-top:3px">incl. +${score.trustBonus} trust index</div>`:''}
+        </div>
+        ${barsHtml}
+      </div>
+    </div>
+    ${uspHtml}
+  </div>`;
+}
+
+function showToast(msg, duration) {
+  let t = document.getElementById('ryaview-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'ryaview-toast';
+    t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:#1e2a3a;border:1px solid rgba(79,142,247,0.3);color:#dce8f4;font-family:var(--fm,monospace);font-size:12px;padding:10px 20px;border-radius:8px;z-index:9999;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(t._hide);
+  t._hide = setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(-50%) translateY(20px)';
+  }, duration || 3000);
+}
+
+function validateProjMeta() {
+  const client = (document.getElementById('proj-client')?.value || '').trim();
+  const site   = (document.getElementById('proj-site')?.value   || '').trim();
+  const missing = [];
+  if (!client) missing.push('proj-client');
+  if (!site)   missing.push('proj-site');
+  if (missing.length) {
+    missing.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.borderColor = '#f43f5e';
+      el.style.boxShadow = '0 0 0 3px rgba(244,63,94,0.18)';
+      el.classList.add('shake-field');
+      setTimeout(() => { el.style.borderColor=''; el.style.boxShadow=''; el.classList.remove('shake-field'); }, 2000);
+    });
+    // Scroll to the fields
+    document.getElementById('proj-client').scrollIntoView({ behavior:'smooth', block:'center' });
+    showToast('Please fill in Client Name and Project / Site before continuing');
+    return false;
+  }
+  return true;
+}
+
+function runCompare() {
+  if (!validateProjMeta()) return;
+  const brands = [1,2,3,4,5].map(i=>document.getElementById('b'+i)?.value).filter(Boolean);
+  logUsage('compare_run', brands.slice(0,3).join(' vs '));
+  const cams = [];
+  for (let i=1;i<=5;i++) {
+    const bv = document.getElementById('b'+i).value;
+    const mv = document.getElementById('m'+i).value;
+    if (bv && mv) { const mk=mv.split('|')[0]; cams.push(getCamSpec(bv,mk)); }
+  }
+  if (cams.length < 2) { alert('Please select at least 2 cameras to compare.'); return; }
+
+  // ── Score every camera (client-aware) ──
+  const clientMode = getClientMode();
+  const scored = cams.map(c => ({ cam:c, score: scoreCamera(c, cams, clientMode) }));
+  scored.sort((a,b) => b.score.total - a.score.total);
+  let winner     = scored[0].cam;
+  let winnerScore= scored[0].score;
+
+  // ── Render winner card (AI reasons load async below) ──
+  const wc = document.getElementById('winner-card');
+  wc.innerHTML = buildWinnerCard(winner, winnerScore, cams);
+  wc.style.display = 'block';
+
+  // ── Find best per metric for matrix highlights ──
+  const bestWarranty  = Math.max(...cams.map(c=>c.warranty));
+  const lowestPrice   = Math.min(...cams.filter(c=>c.priceNum>0).map(c=>c.priceNum));
+  const bestLowLight  = Math.max(...cams.map(c=>c.lowLight));
+  const lowestStorage = Math.min(...cams.map(c=>c.storageNum));
+
+  const gridCols = '140px '+cams.map(()=>'1fr').join(' ');
+
+  function row(label, cells) {
+    return `<div class="mrow" style="grid-template-columns:${gridCols}">
+      <div class="mc feat">${label}</div>
+      ${cells.map(c=>`<div class="mc ${c.best?'win':''}">${c.html}</div>`).join('')}
+    </div>`;
+  }
+
+  // Score bar in header
+  const hdrCells = cams.map(c => {
+    const sc = scored.find(s=>s.cam===c).score;
+    const isWin = c === winner;
+    return { best: isWin, html:`
+      <div class="mc-brand" style="${isWin?'color:var(--blue)':''}">${c.brand}</div>
+      <div class="mc-model">${c.model}</div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:6px">
+        <div style="flex:1;background:rgba(255,255,255,0.05);border-radius:3px;height:4px;overflow:hidden">
+          <div style="width:${sc.total}%;height:100%;background:${isWin?'var(--blue)':'var(--dim)'};border-radius:3px"></div>
+        </div>
+        <div style="font-size:9px;font-family:var(--fm);color:${isWin?'var(--blue2)':'var(--mid)'}">${sc.total}</div>
+      </div>`
+    };
+  });
+
+  const resCells     = cams.map(c=>({ best:false, html:`<span style="font-family:var(--fm);font-size:13px;color:var(--head)">${c.res}</span>` }));
+  const countryCells = cams.map(c=>({ best:false, html:`<span style="font-size:11px;color:var(--head)">${c.country}</span>` }));
+  const llCells      = cams.map(c=>({ best:c.lowLight===bestLowLight, html:stars(c.lowLight) }));
+  const priceCells   = cams.map(c=>({ best:c.priceNum===lowestPrice, html:`<span class="mc-price">${c.price}</span>` }));
+  const warCells     = cams.map(c=>({
+    best: c.warranty===bestWarranty,
+    html: `<span style="font-family:var(--fm);font-size:12px;font-weight:600;color:var(--head)">${c.warranty} Years</span>${c.warranty===bestWarranty?'<div style="font-size:9px;color:var(--money);margin-top:3px">✓ Best warranty</div>':''}<div style="font-size:9px;color:var(--mid);margin-top:2px">${c.warrantyType}</div>`
+  }));
+  const compCells    = cams.map(c=>({
+    best: false,
+    html: c.codecs.map(x=>`<span class="atag" style="background:rgba(79,142,247,0.08);border-color:rgba(79,142,247,0.2);color:var(--blue2)">${x}</span>`).join('')+
+          `<div style="font-size:9px;color:var(--money);margin-top:5px;font-family:var(--fm)">${c.saving}</div>`+
+          `<div style="font-size:9px;color:var(--mid);margin-top:2px;line-height:1.5">${c.compressionNote}</div>`
+  }));
+  const storCells    = cams.map(c=>({
+    best: c.storageNum===lowestStorage,
+    html: `<div style="font-family:var(--fm);font-size:13px;font-weight:600;color:var(--head)">${c.storageBase} GB<span style="font-size:9px;font-weight:400;color:var(--mid)">/hr</span></div>`+
+          (c.storageNum===lowestStorage?'<div style="font-size:9px;color:var(--money);margin-top:3px">✓ Lowest storage</div>':'')+
+          `<div style="font-size:9px;color:var(--mid);margin-top:2px;line-height:1.5">${c.storageNote}</div>`
+  }));
+
+  // Trust index row — shows Axis USPs vs competitor gaps
+  const trustCells = cams.map(c => {
+    const isAxis = c.brand === 'Axis';
+    const sc = scored.find(s=>s.cam===c).score;
+    const badges = [];
+    if (isAxis) {
+      badges.push(['AXIS OS', '#4f8ef7'], ['TPM 2.0', '#4f8ef7'], ['PSIRT', '#4f8ef7'], ['5yr Warranty', '#00c853'], ['No Ban Risk', '#00c853'], ['70K+ Ecosystem', '#4f8ef7']);
+    } else if (['Hanwha','Bosch'].includes(c.brand)) {
+      badges.push(['H.265 Platform', '#6b85a8'], ['ONVIF Compliant', '#6b85a8'], ['No Ban Risk', '#00c853']);
+    } else if (['Honeywell','Pelco'].includes(c.brand)) {
+      badges.push(['Western Brand', '#6b85a8'], ['No Ban Risk', '#00c853'], ['Standard Linux OS', '#3d5070']);
+    } else if (c.brand === 'i-PRO') {
+      badges.push(['Japanese Engineering', '#e0a020'], ['On-Camera AI', '#e0a020'], ['No Ban Risk', '#00c853'], ['Panasonic Legacy', '#6b85a8']);
+    } else if (['Matrix','Sparsh'].includes(c.brand)) {
+      badges.push(['Make-in-India', '#6b85a8'], ['No Ban Risk', '#00c853'], ['Standard Linux OS', '#3d5070']);
+    } else {
+      badges.push(['Generic Linux OS', '#3d5070'], ['No PSIRT', '#f43f5e'], ['Govt. Ban Risk', '#f43f5e']);
+    }
+    return {
+      best: isAxis,
+      html: badges.map(([lbl,col])=>`<span class="atag" style="border-color:${col}33;color:${col};background:${col}11">${lbl}</span>`).join('')+
+            `<div style="font-size:9px;font-family:var(--fm);color:${isAxis?'var(--blue2)':'var(--dim)'};margin-top:6px">Trust Index: ${sc.breakdown.trust}/8</div>`
+    };
+  });
+
+  const aiCells     = cams.map(c=>({ best:false, html: c.ai.map(a=>`<span class="atag">${a}</span>`).join('') }));
+  const verdictCells= cams.map(c=>{
+    const vid = 'verdict-' + c.brand.replace(/[^a-zA-Z0-9]/g,'-') + '-' + c.model.replace(/[^a-zA-Z0-9]/g,'-');
+    const isWin = c === winner;
+    return { best: isWin, html:`<span id="${vid}" style="font-size:11px;line-height:1.65;color:${isWin?'var(--body)':'var(--mid)'}"><span style="color:var(--mid);font-style:italic">AI is analysing…</span></span>` };
+  });
+
+  const matrixHtml = [
+    `<div class="mrow" style="grid-template-columns:${gridCols}"><div class="mc feat">Score</div>${hdrCells.map(c=>`<div class="mc hdr ${c.best?'win':''}">${c.html}</div>`).join('')}</div>`,
+    row('Resolution',           resCells),
+    row('Country of Manufacture',countryCells),
+    row('Low Light',            llCells),
+    row('Unit Price',           priceCells),
+    row('Warranty',             warCells),
+    row('Compression',          compCells),
+    row('Storage (Recording)',  storCells),
+    row('Reliability & Trust',  trustCells),
+    row('AI Analytics',         aiCells),
+    row('Verdict',              verdictCells)
+  ].join('');
+
+  const inner = document.getElementById('matrix-inner');
+  inner.innerHTML = matrixHtml;
+  inner.style.minWidth = Math.max(900, 140 + cams.length * 220) + 'px';
+
+  document.getElementById('matrix-wrap').style.display   = 'block';
+  document.getElementById('btn-pdf').style.display       = 'inline-flex';
+  document.getElementById('matrix-title').textContent    = 'Full Comparison Matrix — ' + cams.length + ' cameras';
+
+  // Smooth scroll to winner card
+  document.getElementById('winner-card').scrollIntoView({ behavior:'smooth', block:'nearest' });
+
+  // ── AI Verdict: async call to Claude with real specs + client context ──
+  (async () => {
+    try {
+      const meta = getProjMeta();
+      const clientCtx = [meta.client, meta.site].filter(Boolean).join(' — ');
+
+      // Extract chipset and deep learning processor from cybersecurity field per model
+      function parseChipset(cyberStr) {
+        const m = (cyberStr||'').match(/ARTPEC-\d+/i);
+        return m ? m[0] : null;
+      }
+      function parseDLP(cyberStr) {
+        if (/MLPU/i.test(cyberStr||'')) return 'MLPU (Machine Learning Processing Unit)';
+        if (/DLPU/i.test(cyberStr||'')) return 'DLPU (Deep Learning Processing Unit)';
+        return null;
+      }
+      function parseFIPS(cyberStr) {
+        const m = (cyberStr||'').match(/FIPS\s*140-[23]/i);
+        return m ? m[0] : null;
+      }
+
+      const camSummary = cams.map(c => {
+        const chipset = parseChipset(c.cybersecurity);
+        const dlp     = parseDLP(c.cybersecurity);
+        const fips    = parseFIPS(c.cybersecurity);
+        return [
+          `Brand: ${c.brand}`,
+          `Model: ${c.model}`,
+          `Type: ${c.type}`,
+          `Resolution: ${c.res}`,
+          `Chipset: ${chipset || (c.brand === 'Axis' ? 'Axis proprietary (see cybersecurity field)' : 'Third-party SoC (vendor unspecified)')}`,
+          `On-Camera Deep Learning: ${dlp || 'None — analytics depend on NVR/cloud'}`,
+          `Low Light: ${c.lowLight}/5 stars`,
+          `Warranty: ${c.warranty} years`,
+          `Country of Manufacture: ${c.country}`,
+          `AI Analytics: ${(c.ai||[]).join(', ')||'Basic motion detection only'}`,
+          `Compression: ${c.codecs.join(', ')} (${c.saving})`,
+          `Storage Load: ${c.storageBase} GB/hr`,
+          `Security Platform: ${c.cybersecurity||'Standard Linux — no hardened OS'}`,
+          fips ? `Certification: ${fips}` : 'Certification: None listed'
+        ].join('\n');
+      }).join('\n\n---\n\n');
+
+      const isGovtClient = clientMode === 'govt';
+
+      const prompt = `You are a senior surveillance camera technical consultant — specialising in chipset architecture, edge AI, and cybersecurity — for an Axis-authorised systems integrator in India (Q1 2026).
+
+CLIENT CONTEXT: ${clientCtx || 'General commercial deployment'}
+PROCUREMENT SENSITIVITY: ${isGovtClient ? 'GOVERNMENT / DEFENCE / PSU — strict supply chain and security rules apply' : 'Commercial deployment'}
+
+${isGovtClient ? `CRITICAL FOR THIS CLIENT: This is a government or defence deployment. Chinese-manufactured cameras (including Pelco China-manufactured, Hikvision, CP Plus) present procurement disqualification risk under Indian government security guidelines, MeitY directives, and global NDAA/EU precedent. Supply chain integrity and country of manufacture are PRIMARY selection criteria — not secondary. Do NOT recommend any camera with Chinese manufacturing origin for this client under any circumstances, regardless of specs.` : `Infer the sector from client name and site (hospital → DPDP Act liability; bank → RBI cyber circular; airport → multi-agency network; government/PSU → procurement ban risk; data centre → zero-trust network requirements). Let the sector shape which technical arguments you lead with.`}
+
+CAMERAS BEING COMPARED:
+${camSummary}
+
+Your task: give the integrator's sales team a technically precise, client-contextual recommendation. Lead with CHIPSET and ON-CAMERA DEEP LEARNING as the primary differentiators, then layer in cybersecurity, then everything else.
+
+Return ONLY a JSON object — no text, no markdown:
+{
+  "winner": { "brand": "exact brand", "model": "exact model", "reasons": [
+    "Chipset/processing reason — specific to the model's chipset vs competitors in this comparison",
+    "On-camera deep learning reason — edge inferencing vs NVR-dependent competitors, tied to client context",
+    "Cybersecurity/compliance reason — specific to client sector and this model's verified certifications"
+  ]},
+  "verdicts": [
+    { "brand": "Brand", "model": "Model", "verdict": "2-3 sentences structured as: (1) chipset and edge AI capability of this specific model, (2) cybersecurity posture relevant to the client's sector, (3) where it leads or falls short vs the other cameras in this comparison" }
+  ]
+}
+
+STRICT RULES — every rule is mandatory:
+- NEVER mention price, cost, rupees, budget or affordability
+- CHIPSET must be named explicitly in every Axis verdict — ARTPEC-7/8/9 as applicable. For non-Axis, name the chip if known or flag it as unspecified third-party SoC
+- ON-CAMERA DEEP LEARNING: if a camera has DLPU/MLPU, explain what this means operationally for the client (edge inferencing, no NVR dependency, network traffic reduction, independent operation). If it lacks this, say so clearly
+- CYBERSECURITY: reference AXIS OS, TPM 2.0, PSIRT, signed firmware, 802.1AR and FIPS certifications when present. For Chinese-origin cameras flag NDAA/EU ban risk where client context makes it relevant
+- Every verdict must be unique and specific to THIS comparison — no generic brand copy
+- At least one winner reason must reference the client by name or sector`;
+
+      const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': 'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      const data = await res.json();
+      const text = (data.content || []).map(c => c.text || '').join('').trim();
+      const ai = JSON.parse(text.replace(/```json|```/g, '').trim());
+
+      // If AI winner differs from spec winner — override the winner card
+      if (ai.winner) {
+        const aiWinnerCam = cams.find(c => c.brand === ai.winner.brand && c.model === ai.winner.model);
+        if (aiWinnerCam && aiWinnerCam !== winner) {
+          // AI has overridden the spec winner based on client context
+          winner = aiWinnerCam;
+          winnerScore = scored.find(s => s.cam === aiWinnerCam)?.score || winnerScore;
+          const wc = document.getElementById('winner-card');
+          wc.innerHTML = buildWinnerCard(winner, winnerScore, cams, ai.winner.reasons);
+        } else {
+          // Same winner — just update the reasons
+          const wr = document.getElementById('winner-reasons');
+          if (wr && ai.winner.reasons) {
+            wr.innerHTML = ai.winner.reasons.map(r =>
+              `<div style="display:flex;gap:8px;margin-bottom:3px"><span style="color:var(--blue);flex-shrink:0;margin-top:2px">✓</span><span>${r}</span></div>`
+            ).join('');
+          }
+        }
+      }
+
+      // Update verdict cells — highlight based on AI winner
+      if (ai.verdicts) {
+        cams.forEach(c => {
+          const v = ai.verdicts.find(x => x.brand === c.brand && x.model === c.model);
+          if (v) {
+            const isWin = c.brand === winner.brand && c.model === winner.model;
+            const el = document.getElementById('verdict-' + c.brand.replace(/[^a-zA-Z0-9]/g,'-') + '-' + c.model.replace(/[^a-zA-Z0-9]/g,'-'));
+            if (el) el.innerHTML = `<span style="font-size:11px;line-height:1.65;color:${isWin?'var(--body)':'var(--mid)'}">${v.verdict}</span>`;
+          }
+        });
+      }
+    } catch(e) {
+      console.warn('AI verdict failed:', e.message);
+    }
+  })();
+}
+
+/* ── EXPORT COMPARE PDF ── */
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a3' });
+
+  const cams = [];
+  for (let i=1;i<=5;i++) {
+    const bv = document.getElementById('b'+i).value;
+    const mv = document.getElementById('m'+i).value;
+    if (bv && mv) { const mk=mv.split('|')[0]; cams.push(getCamSpec(bv,mk)); }
+  }
+  if (!cams.length) { alert('Run Compare first.'); return; }
+
+  const scored  = cams.map(c=>({ cam:c, score:scoreCamera(c,cams,getClientMode()) }));
+  scored.sort((a,b)=>b.score.total-a.score.total);
+  const winner  = scored[0].cam;
+  const winSc   = scored[0].score;
+  const isAxis  = winner.brand === 'Axis';
+
+  const now     = new Date();
+  const dateStr = now.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+
+  // Dark background + accent line
+  doc.setFillColor(13,17,23); doc.rect(0,0,420,297,'F');
+  doc.setFillColor(79,142,247); doc.rect(0,0,420,1,'F');
+
+  // Logo
+  doc.setTextColor(122,173,250); doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text('ryaview.ai',14,14);
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(107,133,168);
+  doc.text('CAMERA INTELLIGENCE PLATFORM  ·  INTERNAL USE ONLY',14,20);
+
+  // Title
+  doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(220,232,244);
+  doc.text('Camera Comparison Report',14,30);
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(107,133,168);
+  doc.text('Generated: '+dateStr+'  ·  '+cams.length+' cameras compared',14,36);
+
+  // Winner recommendation box
+  doc.setFillColor(isAxis?17:13, isAxis?27:20, isAxis?50:35);
+  doc.setDrawColor(isAxis?79:0, isAxis?142:200, isAxis?247:83);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(14,40,392,30,2,2,'FD');
+
+  doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.setTextColor(isAxis?122:0, isAxis?173:200, isAxis?250:83);
+  doc.text('RYAVIEW RECOMMENDS  ·  BEST OVERALL  ·  SCORE '+winSc.total+'/108', 18, 47);
+
+  doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(220,232,244);
+  doc.text(winner.brand+' — '+winner.model, 18, 55);
+
+  doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(107,133,168);
+  doc.text(winner.type+' · '+winner.res+' · '+winner.country, 18, 61);
+
+  const bkd   = winSc.breakdown;
+  const bkdStr= 'Value '+bkd.value+'/22  ·  Low Light '+bkd.lowLight+'/20  ·  Storage '+bkd.storage+'/18  ·  Warranty '+bkd.warranty+'/15  ·  AI '+bkd.ai+'/15  ·  Compression '+bkd.compress+'/10  ·  Trust Index '+bkd.trust+'/8';
+  doc.setFontSize(6.5); doc.setTextColor(isAxis?79:0, isAxis?120:160, isAxis?200:80);
+  doc.text(bkdStr, 406, 55, { align:'right' });
+
+  if (isAxis) {
+    doc.setFontSize(6.5); doc.setTextColor(79,120,200);
+    doc.text('Axis USPs: AXIS OS  ·  TPM 2.0 Secure Boot  ·  PSIRT Security Team  ·  5-Year Warranty  ·  No Govt. Ban Risk  ·  70,000+ Open Ecosystem  ·  Forensic WDR 120dB  ·  Zipstream', 18, 66, { maxWidth:388 });
+  }
+
+  // ── Comparison table ──
+  const headers = ['Specification', ...cams.map(c=>c.brand+' '+c.model+' ['+scored.find(s=>s.cam===c).score.total+']')];
+
+  const rows = [
+    ['Ryaview Score',      ...cams.map(c=>scored.find(s=>s.cam===c).score.total+' / 108')],
+    ['Resolution',         ...cams.map(c=>c.res)],
+    ['Country of Mfr.',    ...cams.map(c=>c.country)],
+    ['Low Light',          ...cams.map(c=>'★'.repeat(c.lowLight)+'☆'.repeat(5-c.lowLight))],
+    ['Unit Price (INR)',    ...cams.map(c=>c.price)],
+    ['Warranty',           ...cams.map(c=>c.warranty+' Years  —  '+c.warrantyType)],
+    ['Compression',        ...cams.map(c=>c.codecs.join(', ')+'\n'+c.saving)],
+    ['Storage / hr',       ...cams.map(c=>c.storageBase+' GB/hr')],
+    ['Trust Index',        ...cams.map(c=>{
+      const sc=scored.find(s=>s.cam===c).score.breakdown;
+      if (c.brand==='Axis') return 'AXIS OS + TPM 2.0 + PSIRT + No Ban Risk\nTrust: '+sc.trust+'/8';
+      return c.brand+' standard platform\nTrust: '+sc.trust+'/8';
+    })],
+    ['AI Analytics',       ...cams.map(c=>c.ai.join(', '))],
+    ['Verdict',            ...cams.map(c=>c.verdict)]
+  ];
+
+  const lowestPriceNum = Math.min(...cams.filter(c=>c.priceNum>0).map(c=>c.priceNum));
+  const bestWarrantyNum= Math.max(...cams.map(c=>c.warranty));
+  const lowestStorNum  = Math.min(...cams.map(c=>c.storageNum));
+  const bestLLNum      = Math.max(...cams.map(c=>c.lowLight));
+
+  doc.autoTable({
+    head: [headers],
+    body: rows,
+    startY: 74,
+    margin: { left:14, right:14 },
+    styles: { fontSize:6.8, cellPadding:3, font:'helvetica', textColor:[168,189,212], fillColor:[22,27,39], lineColor:[31,45,69], lineWidth:0.25, overflow:'linebreak' },
+    headStyles: { fillColor:[17,21,32], textColor:[220,232,244], fontSize:7.5, fontStyle:'bold', halign:'center' },
+    alternateRowStyles: { fillColor:[23,29,46] },
+    columnStyles: { 0:{ fillColor:[17,21,32], textColor:[107,133,168], fontStyle:'bold', cellWidth:32, fontSize:6.5 } },
+    didParseCell: function(data) {
+      if (data.section==='body' && data.column.index > 0) {
+        const ci=data.column.index-1;
+        if (ci<cams.length) {
+          const c=cams[ci]; const ri=data.row.index;
+          if (c===winner) { data.cell.styles.fillColor=[17,27,50]; data.cell.styles.textColor=[122,173,250]; data.cell.styles.fontStyle='bold'; }
+          else if ((ri===3&&c.priceNum===lowestPriceNum)||(ri===4&&c.warranty===bestWarrantyNum)||
+                   (ri===6&&c.storageNum===lowestStorNum)||(ri===2&&c.lowLight===bestLLNum)) {
+            data.cell.styles.textColor=[0,200,83];
+          }
+        }
+      }
+    }
+  });
+
+  // ── Footer ──
+  const finalY = doc.lastAutoTable.finalY + 8;
+  doc.setFillColor(31,45,69);
+  doc.rect(14, finalY, 392, 0.3, 'F');
+  doc.setFontSize(7);
+  doc.setTextColor(130,155,190);
+  doc.text('Designed & generated by ryaview.ai  ·  Camera Intelligence Platform  ·  For authorised internal use only', 14, finalY+5);
+  doc.text('Prices are indicative only — exclusive of GST, customs duties, freight and installation. Verify with authorised distributor before quoting.', 14, finalY+9);
+  doc.text('© ryaview.ai  ·  ' + dateStr, 14, finalY+13);
+
+  doc.save('ryaview_comparison_' + dateStr.replace(/ /g,'_') + '.pdf');
+}
+
+/* ════════════════════════════════════════
+   BOQ ENGINE
+════════════════════════════════════════ */
+
+const BOQ_BRANDS = [
+  { name:'Axis',      color:'#60a5fa' },
+  { name:'Hikvision', color:'#f87171' },
+  { name:'Hanwha',    color:'#a78bfa' },
+  { name:'Bosch',     color:'#fb923c' },
+  { name:'CP Plus',   color:'#34d399' },
+  { name:'Honeywell', color:'#fbbf24' },
+  { name:'i-PRO',     color:'#e0a020' },
+  { name:'Pelco',     color:'#f472b6' },
+  { name:'Matrix',    color:'#4ade80' },
+  { name:'Sparsh',    color:'#e879f9' }
+];
+
+const TYPE_BADGE = {
+  'Fixed Dome':   ['tb-fd','Fixed Dome'],
+  'Fixed Bullet': ['tb-fb','Fixed Bullet'],
+  'Fixed Turret': ['tb-ft','Fixed Turret'],
+  'Mini Dome':    ['tb-md','Mini Dome'],
+  'Fixed Box':    ['tb-bx','Fixed Box'],
+  'PTZ':          ['tb-ptz','PTZ'],
+  'Fisheye':      ['tb-fish','Fisheye'],
+  'Panoramic':    ['tb-pan','Panoramic'],
+  'Thermal':      ['tb-therm','Thermal']
+};
+
+let boqBrand = null;
+let altBrand = null;
+let boqRows  = [];   // [{model, type, res, price, qty}]
+let altRows  = [];
+
+// set today's date on load
+window.addEventListener('DOMContentLoaded', () => {
+  const d = document.getElementById('proj-date');
+  if (d) d.value = new Date().toISOString().slice(0,10);
+});
+
+/* ── INR formatter ── */
+function inr(n) {
+  if (n >= 1e7) return '₹ ' + (n/1e7).toFixed(2) + ' Cr';
+  if (n >= 1e5) return '₹ ' + (n/1e5).toFixed(2) + ' L';
+  return '₹ ' + n.toLocaleString('en-IN');
+}
+function inrFull(n) {
+  return '₹ ' + n.toLocaleString('en-IN');
+}
+
+/* ── Get models for a brand ── */
+function brandModels(brand) {
+  // BOQ uses BOQ_DB (303 full models)
+  const entries = BOQ_DB[brand] || [];
+  if (entries.length) return entries.map(c => ({ model: c.m, type: c.t, res: c.r, price: c.p }));
+  // Fallback to CAMERA_DB for compare tab usage
+  const db = CAMERA_DB[brand] || {};
+  return Object.entries(db).map(([model, d]) => ({ model, ...d }));
+}
+
+/* ── Build model <select> HTML ── */
+function modelSelectHTML(id, brand, onchange) {
+  const models = brandModels(brand);
+  const opts = models.map(m =>
+    `<option value="${m.model}|${m.type}|${m.res}|${m.price}">${m.model} — ${m.type} — ${m.res}</option>`
+  ).join('');
+  return `<select class="csel" id="${id}" onchange="${onchange}" style="width:100%;font-size:11px">
+    <option value="">— select model —</option>${opts}</select>`;
+}
+
+/* ── Badge HTML ── */
+function badgeHTML(type) {
+  const b = TYPE_BADGE[type] || ['tb-fd', type];
+  return `<span class="tbadge ${b[0]}">${b[1]}</span>`;
+}
+
+/* ── Build a BOQ row ── */
+function buildRow(idx, brand, rowId, isAlt) {
+  const models = brandModels(brand);
+  const optsHTML = models.map(m =>
+    `<option value="${m.model}|${m.type}|${m.res}|${m.price}">${m.model} — ${m.type} — ${m.res}</option>`
+  ).join('');
+  const fn = isAlt ? 'updateAltRow' : 'updateBoqRow';
+  const delFn = isAlt ? `deleteAltRow('${rowId}')` : `deleteBoqRow('${rowId}')`;
+  return `<tr id="row-${rowId}">
+    <td><span class="rn">${String(idx).padStart(2,'0')}</span></td>
+    <td>
+      <select class="csel" style="width:100%;font-size:11px" onchange="${fn}('${rowId}',this)">
+        <option value="">— select model —</option>${optsHTML}
+      </select>
+      <div id="mname-${rowId}" style="font-size:10px;color:var(--blue2);font-family:var(--fm);margin-top:4px"></div>
+    </td>
+    <td id="type-${rowId}">—</td>
+    <td class="rs" id="res-${rowId}">—</td>
+    <td style="padding:4px 8px;min-width:150px">
+      <div id="price-ref-${rowId}" style="font-size:9px;color:var(--dim);font-family:var(--fm);margin-bottom:3px">Indicative: —</div>
+      <input class="qin" id="price-edit-${rowId}" placeholder="Enter price" style="width:110px;font-size:12px;text-align:right" oninput="onPriceEdit('${rowId}')">
+    </td>
+    <td><input class="qin" id="qty-${rowId}" value="1" oninput="${fn}('${rowId}',null)"></td>
+    <td class="pr" id="total-${rowId}">—</td>
+    <td><button class="xb" onclick="${delFn}">×</button></td>
+  </tr>`;
+}
+
+/* ─────────────────────────────────────
+   MAIN BOQ
+───────────────────────────────────── */
+function selectBoqBrand(btn, brand, color) {
+  document.querySelectorAll('#boq-brands .bb').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  boqBrand = brand;
+  boqRows = [];
+
+  document.getElementById('boq-step2-hdr').style.display = '';
+  document.getElementById('boq-notice').style.display    = '';
+  document.getElementById('boq-tbl').style.display       = '';
+  document.getElementById('boq-brand-tag').textContent   = '— ' + brand;
+  document.getElementById('stat-brand').textContent      = brand;
+
+  // Seed 5 blank rows
+  const tbody = document.getElementById('boq-tbody');
+  tbody.innerHTML = '';
+  for (let i=1; i<=5; i++) {
+    const rid = 'b' + Date.now() + i;
+    boqRows.push({ id: rid, model:'', type:'', res:'', price:0, qty:1 });
+    tbody.insertAdjacentHTML('beforeend', buildRow(i, brand, rid, false));
+  }
+  updateBoqTotals();
+}
+
+function updateBoqRow(rowId, sel) {
+  const row = boqRows.find(r => r.id === rowId);
+  if (!row) return;
+  if (sel && sel.value) {
+    const [model, type, res, price] = sel.value.split('|');
+    row.model = model; row.type = type; row.res = res; row.price = parseInt(price)||0;
+    document.getElementById('type-'+rowId).innerHTML  = badgeHTML(type);
+    document.getElementById('res-'+rowId).textContent = res;
+    // Set indicative ref and pre-fill editable price
+    const refEl  = document.getElementById('price-ref-'+rowId);
+    const editEl = document.getElementById('price-edit-'+rowId);
+    if (refEl)  refEl.textContent  = 'Indicative: ' + inrFull(row.price);
+    if (editEl) { editEl.value = row.price > 0 ? row.price : ''; editEl.placeholder = row.price > 0 ? '' : 'Enter price'; }
+    row.customPrice = null;  // reset custom on model change
+    document.getElementById('mname-'+rowId).textContent = model;
+  }
+  const qEl = document.getElementById('qty-'+rowId);
+  row.qty = parseInt(qEl?.value)||1;
+  const effectivePrice = (row.customPrice != null) ? row.customPrice : row.price;
+  const tot = effectivePrice * row.qty;
+  document.getElementById('total-'+rowId).textContent = tot > 0 ? inrFull(tot) : '—';
+  updateBoqTotals();
+}
+
+function onPriceEdit(rowId) {
+  const row   = boqRows.find(r => r.id === rowId);
+  if (!row) return;
+  const val   = parseInt(document.getElementById('price-edit-'+rowId)?.value) || 0;
+  row.customPrice = val > 0 ? val : null;
+  const effectivePrice = (row.customPrice != null) ? row.customPrice : row.price;
+  const tot   = effectivePrice * row.qty;
+  document.getElementById('total-'+rowId).textContent = tot > 0 ? inrFull(tot) : '—';
+  updateBoqTotals();
+}
+
+function addBoqRow() {
+  if (!boqBrand) return;
+  const tbody = document.getElementById('boq-tbody');
+  const rid = 'b' + Date.now();
+  boqRows.push({ id: rid, model:'', type:'', res:'', price:0, qty:1 });
+  tbody.insertAdjacentHTML('beforeend', buildRow(boqRows.length, boqBrand, rid, false));
+  renumberRows('boq-tbody');
+  updateBoqTotals();
+}
+
+function deleteBoqRow(rowId) {
+  boqRows = boqRows.filter(r => r.id !== rowId);
+  document.getElementById('row-'+rowId)?.remove();
+  renumberRows('boq-tbody');
+  updateBoqTotals();
+}
+
+function updateBoqTotals() {
+  const filled = boqRows.filter(r => (r.customPrice != null ? r.customPrice : r.price) > 0);
+  const total  = filled.reduce((s,r) => { const ep = r.customPrice != null ? r.customPrice : r.price; return s + ep * r.qty; }, 0);
+  const units  = filled.reduce((s,r) => s + r.qty, 0);
+  document.getElementById('boq-grand-total').textContent = inrFull(total);
+  document.getElementById('stat-items').textContent  = filled.length;
+  document.getElementById('stat-units').textContent  = units;
+  document.getElementById('stat-value').textContent  = inr(total);
+}
+
+function renumberRows(tbodyId) {
+  const rows = document.querySelectorAll(`#${tbodyId} tr`);
+  rows.forEach((tr, i) => {
+    const rn = tr.querySelector('.rn');
+    if (rn) rn.textContent = String(i+1).padStart(2,'0');
+  });
+}
+
+/* ─────────────────────────────────────
+   ALT BOQ MODAL
+───────────────────────────────────── */
+function openAltModal() {
+  if (!boqBrand) { alert('Please select a brand and build your BOQ first.'); return; }
+
+  // Populate alt brand strip — exclude current BOQ brand
+  const strip = document.getElementById('alt-brands');
+  strip.innerHTML = '';
+  BOQ_BRANDS.forEach(b => {
+    if (b.name === boqBrand) return;
+    strip.insertAdjacentHTML('beforeend',
+      `<button class="bb" onclick="selectAltBrand(this,'${b.name}')">
+        <span class="bdot" style="background:${b.color}"></span>${b.name}
+      </button>`);
+  });
+
+  document.getElementById('alt-excl-tag').textContent = '(excluding ' + boqBrand + ')';
+  document.getElementById('alt-step2').style.display = 'none';
+  document.getElementById('alt-tbody').innerHTML = '';
+  altRows = [];
+  altBrand = null;
+  document.getElementById('alt-grand-total').textContent = '₹ 0';
+  document.getElementById('alt-modal').classList.add('on');
+}
+
+function closeAltModal() {
+  document.getElementById('alt-modal').classList.remove('on');
+}
+
+/* ── Auto-match: find best equivalent model in altBrand for a given type+resolution ── */
+function resToMP(resStr) {
+  if (!resStr) return 0;
+  // Handle "4MP", "8MP", "2MP", "41MP" etc
+  const mp = resStr.match(/^(\d+(?:\.\d+)?)\s*MP/i);
+  if (mp) return parseFloat(mp[1]);
+  // Handle thermal "384×288", "640×480" → fake MP equiv
+  const px = resStr.match(/(\d+)[×x](\d+)/);
+  if (px) return (parseInt(px[1]) * parseInt(px[2])) / 1e6;
+  return 0;
+}
+
+// Type family groups — models within the same family can match each other
+const TYPE_FAMILY = {
+  'Fixed Dome':    ['Fixed Dome','Mini Dome','Corridor Dome','Specialty Dome'],
+  'Mini Dome':     ['Mini Dome','Fixed Dome'],
+  'Corridor Dome': ['Corridor Dome','Fixed Dome'],
+  'Specialty Dome':['Specialty Dome','Fixed Dome'],
+  'Fixed Bullet':  ['Fixed Bullet'],
+  'Fixed Box':     ['Fixed Box'],
+  'PTZ':           ['PTZ'],
+  'Panoramic':     ['Panoramic'],
+  'Corner':        ['Corner','Fixed Dome'],
+  'Thermal Bullet':['Thermal Bullet','Thermal PT','Thermal Dome','Thermal Temp'],
+  'Thermal PT':    ['Thermal PT','Thermal Bullet','Thermal Dome'],
+  'Thermal Dome':  ['Thermal Dome','Thermal Bullet','Thermal PT'],
+  'Thermal Temp':  ['Thermal Temp','Thermal Bullet','Thermal PT'],
+};
+
+function findBestMatch(altBrand, srcType, srcRes) {
+  const pool = BOQ_DB[altBrand] || [];
+  if (!pool.length) return null;
+  const targetMP = resToMP(srcRes);
+  const families = TYPE_FAMILY[srcType] || [srcType];
+
+  // 1st pass — exact type match
+  let candidates = pool.filter(m => m.t === srcType);
+  // 2nd pass — family match if no exact
+  if (!candidates.length) {
+    candidates = pool.filter(m => families.includes(m.t));
+  }
+  // 3rd pass — any model (fallback)
+  if (!candidates.length) candidates = pool;
+
+  // Among candidates pick closest resolution (fewest MP difference)
+  candidates.sort((a, b) => {
+    const da = Math.abs(resToMP(a.r) - targetMP);
+    const db = Math.abs(resToMP(b.r) - targetMP);
+    return da - db;
+  });
+
+  return candidates[0] || null;
+}
+
+function selectAltBrand(btn, brand) {
+  document.querySelectorAll('#alt-brands .bb').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  altBrand = brand;
+  altRows  = [];
+
+  document.getElementById('alt-step2').style.display = '';
+  document.getElementById('alt-brand-tag').textContent = '— ' + brand;
+
+  const tbody = document.getElementById('alt-tbody');
+  tbody.innerHTML = '';
+  const srcRows = boqRows.filter(r => r.price > 0);
+  const count   = Math.max(srcRows.length, 1);
+
+  for (let i = 0; i < count; i++) {
+    const rid  = 'a' + Date.now() + i;
+    const src  = srcRows[i];
+    const qty  = src ? src.qty : 1;
+    altRows.push({ id: rid, model:'', type:'', res:'', price:0, qty });
+    tbody.insertAdjacentHTML('beforeend', buildRow(i+1, brand, rid, true));
+
+    // Auto-match and populate
+    if (src && src.type) {
+      const match = findBestMatch(brand, src.type, src.res);
+      if (match) {
+        setTimeout((() => {
+          const _rid = rid, _match = match, _qty = qty;
+          return () => {
+            const sel = document.querySelector(`#row-${_rid} .csel`);
+            const qEl = document.getElementById('qty-' + _rid);
+            if (qEl) qEl.value = _qty;  // set qty FIRST
+            if (sel) {
+              // Find the matching option and select it
+              const optVal = `${_match.m}|${_match.t}|${_match.r}|${_match.p}`;
+              let found = Array.from(sel.options).find(o => o.value === optVal);
+              if (!found) found = Array.from(sel.options).find(o => o.value.startsWith(_match.m + '|'));
+              if (found) {
+                sel.value = found.value;
+                updateAltRow(_rid, sel);  // fires with qty already set
+              } else {
+                updateAltRow(_rid, null);
+              }
+            } else if (qEl) {
+              updateAltRow(_rid, null);
+            }
+          };
+        })(), 0);
+      } else {
+        // No match — just set qty
+        setTimeout((() => {
+          const _rid = rid, _qty = qty;
+          return () => {
+            const qEl = document.getElementById('qty-' + _rid);
+            if (qEl) { qEl.value = _qty; }
+          };
+        })(), 0);
+      }
+    }
+  }
+
+  document.getElementById('alt-excl-note').innerHTML =
+    `<b>Auto-matched</b> from your ${boqBrand} BOQ by type &amp; resolution — adjust models as needed.`;
+  setTimeout(updateAltTotals, 50);
+}
+
+function updateAltRow(rowId, sel) {
+  const row = altRows.find(r => r.id === rowId);
+  if (!row) return;
+  if (sel && sel.value) {
+    const [model, type, res, price] = sel.value.split('|');
+    row.model = model; row.type = type; row.res = res; row.price = parseInt(price)||0;
+    document.getElementById('type-'+rowId).innerHTML  = badgeHTML(type);
+    document.getElementById('res-'+rowId).textContent = res;
+    document.getElementById('mname-'+rowId).textContent = model;
+    // Update editable price field + indicative ref
+    const refEl  = document.getElementById('price-ref-'+rowId);
+    const editEl = document.getElementById('price-edit-'+rowId);
+    if (refEl)  refEl.textContent = 'Indicative: ' + inrFull(row.price);
+    if (editEl && !editEl._userEdited) {
+      editEl.value = row.price > 0 ? row.price : '';
+      editEl.placeholder = row.price > 0 ? '' : 'Enter price';
+    }
+    row.customPrice = null;  // reset custom on model change
+  }
+  const qEl = document.getElementById('qty-'+rowId);
+  row.qty = parseInt(qEl?.value)||1;
+  const effectivePrice = (row.customPrice != null) ? row.customPrice : row.price;
+  const tot = effectivePrice * row.qty;
+  document.getElementById('total-'+rowId).textContent = tot > 0 ? inrFull(tot) : '—';
+  updateAltTotals();
+}
+
+function addAltRow() {
+  if (!altBrand) return;
+  const tbody = document.getElementById('alt-tbody');
+  const rid = 'a' + Date.now();
+  altRows.push({ id: rid, model:'', type:'', res:'', price:0, qty:1 });
+  tbody.insertAdjacentHTML('beforeend', buildRow(altRows.length, altBrand, rid, true));
+  renumberRows('alt-tbody');
+  updateAltTotals();
+}
+
+function deleteAltRow(rowId) {
+  altRows = altRows.filter(r => r.id !== rowId);
+  document.getElementById('row-'+rowId)?.remove();
+  renumberRows('alt-tbody');
+  updateAltTotals();
+}
+
+function updateAltTotals() {
+  const total = altRows.filter(r=>(r.customPrice!=null?r.customPrice:r.price)>0).reduce((s,r) => { const ep=r.customPrice!=null?r.customPrice:r.price; return s+ep*r.qty; }, 0);
+  document.getElementById('alt-grand-total').textContent = inrFull(total);
+}
+
+/* ─────────────────────────────────────
+   PROJECT META HELPERS
+───────────────────────────────────── */
+function getProjMeta() {
+  return {
+    client:  document.getElementById('proj-client')?.value  || '',
+    site:    document.getElementById('proj-site')?.value    || '',
+    by:      document.getElementById('proj-by')?.value      || '',
+    date:    document.getElementById('proj-date')?.value    || new Date().toISOString().slice(0,10)
+  };
+}
+
+/* ─────────────────────────────────────
+   BOQ PDF EXPORT (main + alt)
+───────────────────────────────────── */
+function boqPDFDoc(brand, rows, meta, isAlt) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const dateStr = new Date(meta.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+
+  // Dark background
+  doc.setFillColor(13,17,23);
+  doc.rect(0,0,210,297,'F');
+  // Accent
+  doc.setFillColor(79,142,247);
+  doc.rect(0,0,210,1.2,'F');
+
+  // Logo
+  doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.setTextColor(122,173,250); doc.text('rya',14,14);
+  doc.setTextColor(220,232,244); doc.text('view.ai', 14+doc.getTextWidth('rya'),14);
+  doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.setTextColor(107,133,168);
+  doc.text('CAMERA INTELLIGENCE PLATFORM', 14, 19);
+
+  // Title
+  doc.setFontSize(13); doc.setFont('helvetica','bold');
+  doc.setTextColor(220,232,244);
+  const title = (isAlt ? 'Alternative BOQ — ' : 'Bill of Quantities — ') + brand;
+  doc.text(title, 14, 30);
+  if (isAlt) {
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.setTextColor(107,133,168);
+    doc.text('Alternative to: ' + boqBrand, 14, 36);
+  }
+
+  // Project meta box
+  const mY = isAlt ? 41 : 37;
+  doc.setFillColor(17,21,32);
+  doc.rect(14, mY, 182, 22, 'F');
+  doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.setTextColor(120,150,190);
+  doc.text('CLIENT', 18, mY+6);
+  doc.text('PROJECT / SITE', 80, mY+6);
+  doc.text('PREPARED BY', 140, mY+6);
+  doc.setTextColor(220,232,244); doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+  doc.text(meta.client || '—', 18, mY+13);
+  doc.text(meta.site   || '—', 80, mY+13);
+  doc.text(meta.by     || '—', 140, mY+13);
+  doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.setTextColor(120,150,190);
+  doc.text('DATE', 140, mY+19);
+  doc.setTextColor(200,215,235); doc.setFontSize(8);
+  doc.text(dateStr, 140, mY+24.5);
+
+  // Table
+  const filled = rows.filter(r => r.price > 0);
+  const tableRows = filled.map((r,i) => [
+    String(i+1).padStart(2,'0'),
+    r.model,
+    r.type,
+    r.res,
+    inrFull(r.price),
+    String(r.qty),
+    inrFull(r.price * r.qty)
+  ]);
+  const grandTotal = filled.reduce((s,r) => s + r.price*r.qty, 0);
+  tableRows.push(['','','','','Grand Total','', inrFull(grandTotal)]);
+
+  doc.autoTable({
+    head: [['#','Model No.','Type','Resolution','Unit Price (INR)','Qty','Total (INR)']],
+    body: tableRows,
+    startY: mY + 28,
+    margin: { left:14, right:14 },
+    styles: { fontSize:8, cellPadding:4, font:'helvetica', textColor:[168,189,212], fillColor:[22,27,39], lineColor:[31,45,69], lineWidth:0.3 },
+    headStyles: { fillColor:[17,21,32], textColor:[220,232,244], fontSize:8, fontStyle:'bold' },
+    alternateRowStyles: { fillColor:[23,29,46] },
+    columnStyles: { 0:{cellWidth:10}, 6:{fontStyle:'bold', textColor:[0,200,83]} },
+    didParseCell: function(d) {
+      // Grand Total row
+      if (d.section==='body' && d.row.index === tableRows.length-1) {
+        d.cell.styles.fillColor = [17,21,32];
+        d.cell.styles.textColor = d.column.index===6 ? [0,200,83] : [107,133,168];
+        d.cell.styles.fontStyle = 'bold';
+        d.cell.styles.fontSize  = 9;
+      }
+    }
+  });
+
+  // Footer
+  const fy = doc.lastAutoTable.finalY + 8;
+  doc.setFillColor(31,45,69); doc.rect(14, fy, 182, 0.3, 'F');
+  doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(130,155,190);
+  doc.text('Designed & generated by ryaview.ai  ·  Camera Intelligence Platform  ·  For authorised internal use only', 14, fy+5);
+  doc.text('All prices indicative only — exclusive of GST, customs duties, freight & installation. Verify with authorised distributor before quoting.', 14, fy+9);
+  doc.text('© ryaview.ai  ·  ' + dateStr, 14, fy+13);
+
+  return { doc, dateStr };
+}
+
+function exportBoqPDF() {
+  if (!validateProjMeta()) return;
+  const filled = boqRows.filter(r => r.price > 0);
+  if (!filled.length) { alert('Add at least one camera to the BOQ first.'); return; }
+  const meta = getProjMeta();
+  const { doc, dateStr } = boqPDFDoc(boqBrand, boqRows, meta, false);
+  logUsage('boq_export', boqBrand); doc.save('ryaview_BOQ_' + boqBrand + '_' + dateStr.replace(/ /g,'_') + '.pdf');
+}
+
+function exportAltPDF() {
+  if (!validateProjMeta()) return;
+  const filled = altRows.filter(r => r.price > 0);
+  if (!filled.length) { alert('Add at least one camera to the alternative BOQ first.'); return; }
+  const meta = getProjMeta();
+  const { doc, dateStr } = boqPDFDoc(altBrand, altRows, meta, true);
+  doc.save('ryaview_AltBOQ_' + altBrand + '_' + dateStr.replace(/ /g,'_') + '.pdf');
+}
+
+/* ─────────────────────────────────────
+   BOQ EXCEL EXPORT (main + alt)
+───────────────────────────────────── */
+function buildBoqSheet(brand, rows, meta, isAlt) {
+  const wb = XLSX.utils.book_new();
+  const filled = rows.filter(r => r.price > 0);
+  const grandTotal = filled.reduce((s,r) => s + r.price*r.qty, 0);
+  const dateStr = new Date(meta.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+
+  const sheetData = [
+    ['ryaview.ai — Camera Intelligence Platform'],
+    [isAlt ? 'ALTERNATIVE BILL OF QUANTITIES' : 'BILL OF QUANTITIES'],
+    [],
+    ['Brand:', brand,    '', isAlt ? 'Alternative to:' : '', isAlt ? boqBrand : ''],
+    ['Client:', meta.client, '', 'Project / Site:', meta.site],
+    ['Prepared By:', meta.by, '', 'Date:', dateStr],
+    [],
+    ['#','Model No.','Camera Type','Resolution','Unit Price (INR)','Qty','Total (INR)'],
+    ...filled.map((r,i) => [i+1, r.model, r.type, r.res, r.price, r.qty, r.price*r.qty]),
+    [],
+    ['','','','','Grand Total','', grandTotal],
+    [],
+    ['⚠ Disclaimer: All prices are indicative only — exclusive of GST, customs duties, freight and installation.'],
+    ['Confirm with authorised distributor before formal quotation.'],
+    [],
+    ['Designed & generated by ryaview.ai · Camera Intelligence Platform · For authorised internal use only']
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+  ws['!cols'] = [{wch:4},{wch:28},{wch:16},{wch:12},{wch:20},{wch:8},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws, 'BOQ');
+  return wb;
+}
+
+function exportBoqExcel() {
+  if (!validateProjMeta()) return;
+  const filled = boqRows.filter(r => r.price > 0);
+  if (!filled.length) { showToast('Add at least one camera first.'); return; }
+  if (!boqBrand) { showToast('Select a brand first.'); return; }
+  const meta = getProjMeta();
+  const wb = buildBoqSheet(boqBrand, boqRows, meta, false);
+  XLSX.writeFile(wb, 'ryaview_BOQ_' + boqBrand + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+function exportAltExcel() {
+  if (!validateProjMeta()) return;
+  const filled = altRows.filter(r => r.price > 0);
+  if (!filled.length) { showToast('Add at least one camera to the alternative BOQ first.'); return; }
+  const meta = getProjMeta();
+  const wb = buildBoqSheet(altBrand, altRows, meta, true);
+  XLSX.writeFile(wb, 'ryaview_AltBOQ_' + altBrand + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+
+
+/* ═══════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════
+   B+C ARCHITECTURE — SUPABASE CAMERA DATABASE
+═══════════════════════════════════════════════════════ */
+
+// ── Load all cameras from Supabase and rebuild runtime DB ──
+async function loadCamerasDB() {
+  try {
+    const { data, error } = await _sb.from('cameras')
+      .select('*').eq('active', true).order('brand').order('model');
+    if (error) throw error;
+    buildRuntimeDB(data || []);
+    document.getElementById('db-loading').style.display = 'none';
+    return data || [];
+  } catch(e) {
+    console.error('Camera DB load error:', e);
+    document.getElementById('db-loading').style.display = 'none';
+    showToast('⚠ Could not load camera database — check Supabase connection.');
+    return [];
+  }
+}
+
+function buildRuntimeDB(rows) {
+  // Rebuild BOQ_DB, MODELS, CAMERA_DB from Supabase rows
+  BOQ_DB = {};
+  rows.forEach(r => {
+    if (!BOQ_DB[r.brand]) BOQ_DB[r.brand] = [];
+    const stars = r.low_light || '★★★★☆';
+    BOQ_DB[r.brand].push({
+      m: r.model, t: r.type, r: r.resolution,
+      ll: stars, cy: r.cybersecurity,
+      an: r.analytics || [], p: r.price_inr, inr: true
+    });
+  });
+  // Rebuild MODELS
+  MODELS = {};
+  Object.entries(BOQ_DB).forEach(([brand, arr]) => {
+    MODELS[brand] = arr.map(c => c.m + '|' + c.t + '|' + c.r);
+  });
+  // Rebuild CAMERA_DB
+  CAMERA_DB = {};
+  Object.entries(BOQ_DB).forEach(([brand, arr]) => {
+    CAMERA_DB[brand] = {};
+    arr.forEach(c => {
+      const ll = (c.ll.match(/★/g)||[]).length || 3;
+      CAMERA_DB[brand][c.m] = { type:c.t, res:c.r, lowLight:ll, price:c.p, ai:c.an||[] };
+    });
+  });
+  // Store raw rows for admin CRUD
+  window._cameraRows = rows;
+}
+
+// ── Override onAuthSuccess to load DB first ──
+const _origOnAuthSuccess = onAuthSuccess;
+// Re-define onAuthSuccess to wait for DB before showing UI
+// (Already called after Supabase init — patched below at DOMContentLoaded)
+
+/* ═══════════════════════════════════════════════════════
+   ADMIN DASHBOARD
+═══════════════════════════════════════════════════════ */
+async function loadApprovals() {
+  const list = document.getElementById('approvals-list');
+  if (!list) return;
+  try {
+    const { data: regs } = await _sb.from('registrations').select('*').order('registered_at', { ascending: false });
+    const pending = (regs || []).filter(r => r.status === 'pending');
+    // Update badge
+    const badge = document.getElementById('pending-badge');
+    if (badge) {
+      badge.textContent = pending.length;
+      badge.style.display = pending.length > 0 ? 'inline' : 'none';
+    }
+    if (!regs || regs.length === 0) {
+      list.innerHTML = '<div style="color:var(--mid);text-align:center;padding:40px">No registrations yet.</div>';
+      return;
+    }
+    const rows = regs.map(r => {
+      const dt = r.registered_at ? new Date(r.registered_at).toLocaleString('en-IN') : '—';
+      const statusColor = r.status === 'approved' ? '#00c853' : r.status === 'rejected' ? '#f43f5e' : '#fbbf24';
+      const btns = `<span style="font-size:11px;color:${statusColor};font-weight:700">${r.status.toUpperCase()}</span>`;
+      return `<tr style="border-bottom:1px solid var(--line)">
+        <td style="padding:10px 12px;font-size:13px">${r.name || '—'}</td>
+        <td style="padding:10px 12px;font-size:12px;color:var(--blue)">${r.email}</td>
+        <td style="padding:10px 12px;font-size:11px;color:var(--mid)">${dt}</td>
+        <td style="padding:10px 12px">${btns}</td>
+      </tr>`;
+    }).join('');
+    list.innerHTML = `<table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid var(--line)">
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mid)">NAME</th>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mid)">EMAIL</th>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mid)">REGISTERED</th>
+        <th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--mid)">ACTION</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch(e) {
+    list.innerHTML = '<div style="color:#f43f5e;padding:20px">Error loading registrations.</div>';
+  }
+}
+
+async function approveUser(email) {
+  await _sb.from('registrations').update({ status: 'approved' }).eq('email', email);
+  showToast('✓ ' + email + ' approved — they can now log in.');
+  loadApprovals();
+}
+
+async function rejectUser(email) {
+  if (!confirm('Reject ' + email + '? They will not be able to log in.')) return;
+  await _sb.from('registrations').update({ status: 'rejected' }).eq('email', email);
+  showToast('✕ ' + email + ' rejected.');
+  loadApprovals();
+}
+
+function switchAdmTab(tab, btn) {
+  document.querySelectorAll('.adm-tab').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.adm-panel').forEach(p => p.style.display = 'none');
+  btn.classList.add('on');
+  document.getElementById('adm-' + tab).style.display = '';
+  if (tab === 'cameras')   renderCrudTable();
+  if (tab === 'ai')         renderAiBrandGrid();
+  if (tab === 'approvals')  loadApprovals();
+}
+
+async function loadAdminData() {
+  try {
+    const { data: logins } = await _sb.from('login_events')
+      .select('*').order('ts', { ascending: false }).limit(200);
+    const { data: usage } = await _sb.from('usage_events')
+      .select('*').order('ts', { ascending: false }).limit(500);
+    renderAdminDashboard(logins || [], usage || []);
+    loadApprovals();
+  } catch(e) {
+    console.log('Admin load error:', e);
+    renderAdminDashboard([], []);
+  }
+}
+
+function renderAdminDashboard(logins, usage) {
+  const uniqueUsers = [...new Set(logins.filter(l=>l.event_type==='login').map(l=>l.email))];
+  const boqCounts = {}, cmpCounts = {};
+  usage.filter(u=>u.event_type==='boq_export').forEach(u => { boqCounts[u.brand]=(boqCounts[u.brand]||0)+1; });
+  usage.filter(u=>u.event_type==='compare_run').forEach(u => { cmpCounts[u.brand]=(cmpCounts[u.brand]||0)+1; });
+  const topBOQ = Object.entries(boqCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const topCMP = Object.entries(cmpCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const adm = document.getElementById('admin-content');
+  if (!adm) return;
+  adm.innerHTML = `
+  <div class='admin-stats'>
+    <div class='adm-stat'><div class='adm-stat-val'>${uniqueUsers.length||0}</div><div class='adm-stat-lbl'>Unique Users</div></div>
+    <div class='adm-stat'><div class='adm-stat-val'>${logins.filter(l=>l.event_type==='login').length}</div><div class='adm-stat-lbl'>Total Logins</div></div>
+    <div class='adm-stat'><div class='adm-stat-val'>${usage.filter(u=>u.event_type==='boq_export').length}</div><div class='adm-stat-lbl'>BOQs Exported</div></div>
+    <div class='adm-stat'><div class='adm-stat-val'>${usage.filter(u=>u.event_type==='compare_run').length}</div><div class='adm-stat-lbl'>Comparisons Run</div></div>
+  </div>
+  <div class='adm-row'>
+    <div class='adm-half'>
+      <div class='adm-section-title'>Most BOQ'd Brands</div>
+      ${topBOQ.length ? topBOQ.map(([brand,count]) => `
+        <div class='adm-bar-row'>
+          <span class='adm-bar-label'>${brand}</span>
+          <div class='adm-bar-track'><div class='adm-bar-fill' style='width:${Math.round(count/topBOQ[0][1]*100)}%'></div></div>
+          <span class='adm-bar-count'>${count}</span>
+        </div>`).join('') : '<div class="adm-empty">No BOQ exports yet</div>'}
+    </div>
+    <div class='adm-half'>
+      <div class='adm-section-title'>Most Compared</div>
+      ${topCMP.length ? topCMP.map(([combo,count]) => `
+        <div class='adm-bar-row'>
+          <span class='adm-bar-label'>${combo}</span>
+          <div class='adm-bar-track'><div class='adm-bar-fill' style='width:${Math.round(count/topCMP[0][1]*100)}%;background:var(--money)'></div></div>
+          <span class='adm-bar-count'>${count}</span>
+        </div>`).join('') : '<div class="adm-empty">No comparisons yet</div>'}
+    </div>
+  </div>
+  <div class='adm-section-title' style='margin-top:24px'>Recent Logins</div>
+  <div style='overflow-x:auto'>
+  <table class='adm-table'>
+    <thead><tr><th>Email</th><th>Event</th><th>Time</th><th>Device</th></tr></thead>
+    <tbody>
+    ${logins.slice(0,50).map(l => `
+      <tr>
+        <td>${l.email||'—'}</td>
+        <td><span class='adm-badge ${l.event_type==='login'?'badge-login':'badge-reg'}'>${l.event_type||'—'}</span></td>
+        <td style='font-family:var(--fm);font-size:11px'>${l.ts ? new Date(l.ts).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+        <td style='font-size:10px;color:var(--mid);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'>${(l.user_agent||'').split(' ').slice(0,4).join(' ')}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CRUD — CAMERA DATABASE
+═══════════════════════════════════════════════════════ */
+const BRAND_COLORS = {
+  'Axis':'#60a5fa','Hikvision':'#f87171','Hanwha':'#a78bfa','Bosch':'#fb923c',
+  'CP Plus':'#34d399','Honeywell':'#fbbf24','i-PRO':'#e0a020','Pelco':'#f472b6',
+  'Matrix':'#4ade80','Sparsh':'#e879f9'
+};
+
+/* ── Inline cell editing helpers ── */
+const INLINE_TYPES = ['Fixed Dome','Fixed Bullet','Fixed Box','Mini Dome','PTZ','Panoramic',
+  'Thermal Bullet','Thermal PT','Thermal Temp','Thermal Dome','Corner','Corridor Dome','Specialty Dome'];
+const INLINE_LL    = ['★★★☆☆','★★★★☆','★★★★★'];
+
+function renderCrudTable() {
+  const rows   = window._cameraRows || [];
+  const brand  = document.getElementById('crud-brand-filter')?.value || '';
+  const q      = (document.getElementById('crud-search')?.value || '').toLowerCase();
+  const filtered = rows.filter(r =>
+    (!brand || r.brand === brand) &&
+    (!q || r.model.toLowerCase().includes(q) || r.type.toLowerCase().includes(q))
+  );
+  document.getElementById('crud-count').textContent = `${filtered.length} models`;
+  const tbody = document.getElementById('crud-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = filtered.map(r => `
+    <tr data-id="${r.id}">
+      <td><span style='background:${BRAND_COLORS[r.brand]||'#888'}22;color:${BRAND_COLORS[r.brand]||'#888'};
+        padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700'>${r.brand}</span></td>
+      <td class='td-model' data-field='model' data-id='${r.id}' onclick='inlineEdit(this)'>${r.model}</td>
+      <td data-field='type' data-id='${r.id}' onclick='inlineEdit(this)' style='color:var(--mid);font-size:11px'>${r.type}</td>
+      <td data-field='resolution' data-id='${r.id}' onclick='inlineEdit(this)' style='font-family:var(--fm);font-size:11px'>${r.resolution}</td>
+      <td data-field='low_light' data-id='${r.id}' onclick='inlineEdit(this)'>${r.low_light||'★★★★☆'}</td>
+      <td class='td-price' data-field='price_inr' data-id='${r.id}' onclick='inlineEdit(this)'>₹${(r.price_inr||0).toLocaleString('en-IN')}</td>
+      <td class='td-date'>${r.updated_at ? new Date(r.updated_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) : '—'}</td>
+      <td><button class='crud-edit-btn' style='color:#f87171;border-color:rgba(239,68,68,.3)'
+        onclick="deleteCameraRow(${r.id},'${r.model.replace(/'/g,"\\'")}')">✕</button></td>
+    </tr>`).join('');
+}
+
+function inlineEdit(td) {
+  if (td.querySelector('input,select')) return; // already editing
+  const field = td.dataset.field;
+  const id    = parseInt(td.dataset.id);
+  const row   = (window._cameraRows||[]).find(r => r.id === id);
+  if (!row) return;
+  const orig  = td.textContent.trim();
+
+  let input;
+  if (field === 'type') {
+    input = document.createElement('select');
+    input.className = 'inline-input';
+    INLINE_TYPES.forEach(t => {
+      const o = document.createElement('option');
+      o.value = o.textContent = t;
+      if (t === row.type) o.selected = true;
+      input.appendChild(o);
+    });
+  } else if (field === 'low_light') {
+    input = document.createElement('select');
+    input.className = 'inline-input';
+    INLINE_LL.forEach(t => {
+      const o = document.createElement('option');
+      o.value = o.textContent = t;
+      if (t === row.low_light) o.selected = true;
+      input.appendChild(o);
+    });
+  } else {
+    input = document.createElement('input');
+    input.className = 'inline-input';
+    input.type = field === 'price_inr' ? 'number' : 'text';
+    input.value = field === 'price_inr' ? row.price_inr : row[field] || '';
+  }
+
+  td.textContent = '';
+  td.appendChild(input);
+  input.focus();
+
+  async function commit() {
+    let val = input.value;
+    if (field === 'price_inr') val = parseInt(val) || 0;
+    try {
+      const { error } = await _sb.from('cameras').update({ [field]: val }).eq('id', id);
+      if (error) throw error;
+      // Update local row
+      const localRow = (window._cameraRows||[]).find(r => r.id === id);
+      if (localRow) localRow[field] = val;
+      buildRuntimeDB(window._cameraRows||[]);
+      // Re-render just this cell
+      if (field === 'price_inr') {
+        td.textContent = '₹' + val.toLocaleString('en-IN');
+        td.className = 'td-price';
+      } else {
+        td.textContent = val;
+      }
+      td.style.color = 'var(--money)';
+      setTimeout(() => { td.style.color = ''; }, 1200);
+    } catch(e) {
+      td.textContent = orig;
+      showToast('Save failed: ' + e.message);
+    }
+  }
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { td.textContent = orig; }
+  });
+}
+
+function openAddModal() {
+  const ov = document.getElementById('add-modal-overlay');
+  ov.style.display = 'flex';
+  document.getElementById('am-model').value = '';
+  document.getElementById('am-resolution').value = '';
+  document.getElementById('am-price').value = '';
+  document.getElementById('am-cyber').value = '';
+  document.getElementById('am-analytics').value = '';
+  document.getElementById('am-msg').textContent = '';
+  setTimeout(() => document.getElementById('am-model').focus(), 50);
+}
+
+function closeAddModal() {
+  document.getElementById('add-modal-overlay').style.display = 'none';
+}
+
+async function addNewCamera() {
+  const msgEl = document.getElementById('am-msg');
+  const payload = {
+    brand:        document.getElementById('am-brand').value,
+    model:        document.getElementById('am-model').value.trim(),
+    type:         document.getElementById('am-type').value,
+    resolution:   document.getElementById('am-resolution').value.trim(),
+    low_light:    document.getElementById('am-lowlight').value,
+    price_inr:    parseInt(document.getElementById('am-price').value) || 0,
+    cybersecurity:document.getElementById('am-cyber').value.trim(),
+    analytics:    document.getElementById('am-analytics').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    active: true
+  };
+  if (!payload.model) { msgEl.textContent = '⚠ Model name required'; msgEl.style.color='#f87171'; return; }
+  try {
+    msgEl.textContent = 'Adding…'; msgEl.style.color = 'var(--mid)';
+    const { error } = await _sb.from('cameras').insert(payload);
+    if (error) throw error;
+    await refreshCameraDB();
+    renderCrudTable();
+    closeAddModal();
+    showToast(`✓ ${payload.model} added.`);
+  } catch(e) {
+    msgEl.textContent = '✗ ' + (e.message || 'Failed');
+    msgEl.style.color = '#f87171';
+  }
+}
+
+async function deleteCameraRow(id, model) {
+  if (!confirm(`Remove ${model} from the database?`)) return;
+  try {
+    const { error } = await _sb.from('cameras').update({ active: false }).eq('id', id);
+    if (error) throw error;
+    await refreshCameraDB();
+    renderCrudTable();
+    showToast(`${model} removed.`);
+  } catch(e) { showToast('Delete failed: ' + e.message); }
+}
+
+async function refreshCameraDB() {
+  const { data } = await _sb.from('cameras').select('*').eq('active', true).order('brand').order('model');
+  buildRuntimeDB(data || []);
+}
+
+/* ═══════════════════════════════════════════════════════
+   AI REFRESH — AUTO MODE (no review, direct to Supabase)
+═══════════════════════════════════════════════════════ */
+const BRANDS_LIST = ['Axis','Hikvision','Hanwha','Bosch','CP Plus','Honeywell','i-PRO','Pelco','Matrix','Sparsh'];
+
+function renderAiBrandGrid() {
+  const grid = document.getElementById('ai-brand-grid');
+  if (!grid) return;
+  const rows = window._cameraRows || [];
+  grid.innerHTML = `
+    <div class='ai-refresh-intro' style='grid-column:1/-1'>
+      AI Refresh calls Claude to check each brand's current lineup and auto-applies 
+      additions, removals, and price updates directly to Supabase. Results are shown after each run.
+    </div>` +
+  BRANDS_LIST.map(brand => {
+    const count = rows.filter(r => r.brand === brand).length;
+    return `<div class='ai-brand-tile'>
+      <div class='ai-brand-tile-name' style='color:${BRAND_COLORS[brand]||"var(--head)"}'>${brand}</div>
+      <div class='ai-brand-tile-count'>${count} models</div>
+      <button class='ai-run-btn' id='ai-btn-${brand.replace(/[\s+]/g,"-")}' onclick="runAiRefresh('${brand}')">✨ Refresh</button>
+    </div>`;
+  }).join('');
+}
+
+async function runAiRefresh(brand) {
+  const btnId = 'ai-btn-' + brand.replace(/[\s+]/g,'-');
+  const btn = document.getElementById(btnId);
+  btn.disabled = true; btn.textContent = '⏳ Running…'; btn.classList.add('running');
+
+  const rows = (window._cameraRows||[]).filter(r => r.brand === brand);
+  const currentList = rows.map(r =>
+    `${r.model} | ${r.type} | ${r.resolution} | ₹${r.price_inr} | ${(r.analytics||[]).slice(0,3).join(', ')}`
+  ).join('\n');
+
+  const prompt = `You are a surveillance camera product expert for the Indian market in Q1 2026.
+
+Current ${brand} camera models in our database (${rows.length} total):
+${currentList}
+
+Review this list against ${brand}'s actual current product lineup and return ONLY a JSON array — no text, no markdown:
+[
+  { "action": "add", "model": "MODEL-NAME", "type": "Fixed Dome|Fixed Bullet|Fixed Box|Mini Dome|PTZ|Panoramic|Thermal Bullet|Thermal PT|Thermal Temp|Thermal Dome|Corner|Corridor Dome", "resolution": "e.g. 4MP", "low_light": "★★★★☆", "price_inr": 45000, "cybersecurity": "brief features", "analytics": ["Feature 1","Feature 2"] },
+  { "action": "remove", "model": "EXACT-MODEL-NAME", "reason": "EOL reason" },
+  { "action": "update", "model": "EXACT-MODEL-NAME", "field": "price_inr", "new_value": 48000 }
+]
+Return [] if no changes needed. Only include genuinely EOL models for removal. Only include real current models for addition.`;
+
+  try {
+    const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages:[{ role:'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = (data.content||[]).map(c=>c.text||'').join('').trim();
+    let suggestions;
+    try {
+      suggestions = JSON.parse(text.replace(/```json|```/g,'').trim());
+    } catch(e) {
+      throw new Error('AI returned invalid JSON: ' + text.slice(0,200));
+    }
+
+    // AUTO-APPLY directly to Supabase
+    let adds = 0, removes = 0, updates = 0, fails = 0;
+    const log = [];
+    for (const s of suggestions) {
+      try {
+        if (s.action === 'add') {
+          await _sb.from('cameras').insert({
+            brand, model:s.model, type:s.type, resolution:s.resolution,
+            low_light:s.low_light||'★★★★☆', price_inr:s.price_inr||0,
+            cybersecurity:s.cybersecurity||'', analytics:s.analytics||[], active:true
+          });
+          adds++; log.push(`<span style='color:var(--money)'>+ Added ${s.model}</span>`);
+        } else if (s.action === 'remove') {
+          await _sb.from('cameras').update({active:false}).eq('brand',brand).eq('model',s.model);
+          removes++; log.push(`<span style='color:#f87171'>− Removed ${s.model} (${s.reason||'EOL'})</span>`);
+        } else if (s.action === 'update') {
+          await _sb.from('cameras').update({[s.field]:s.new_value}).eq('brand',brand).eq('model',s.model);
+          updates++; log.push(`<span style='color:#fbbf24'>↻ Updated ${s.model} ${s.field} → ${s.new_value}</span>`);
+        }
+      } catch(e) { fails++; log.push(`<span style='color:#f87171'>✗ ${s.model}: ${e.message}</span>`); }
+    }
+
+    await refreshCameraDB();
+    renderAiBrandGrid();
+
+    // Show result panel
+    const rp = document.getElementById('ai-result-panel');
+    document.getElementById('ai-result-brand').textContent = brand;
+    document.getElementById('ai-result-summary').textContent =
+      suggestions.length === 0
+        ? '✓ Database is up to date — no changes needed.'
+        : `${adds} added · ${removes} removed · ${updates} updated${fails ? ' · ' + fails + ' failed' : ''}`;
+    document.getElementById('ai-result-log').innerHTML = log.join('<br>') || '<span style="color:var(--mid)">No changes applied.</span>';
+    rp.style.display = '';
+    rp.scrollIntoView({behavior:'smooth'});
+
+  } catch(e) {
+    showToast('AI refresh failed: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ Refresh'; btn.classList.remove('running');
+  }
+}
+
+async function runAiRefreshAll() {
+  const allBtn = document.getElementById('ai-refresh-all-btn');
+  const progress = document.getElementById('ai-all-progress');
+  allBtn.disabled = true;
+  allBtn.textContent = '⏳ Running…';
+  progress.style.display = '';
+
+  let totalAdds = 0, totalRemoves = 0, totalUpdates = 0;
+  const allLogs = [];
+
+  for (let i = 0; i < BRANDS_LIST.length; i++) {
+    const brand = BRANDS_LIST[i];
+    progress.textContent = `Processing ${brand} (${i+1} of ${BRANDS_LIST.length})…`;
+
+    const btnId = 'ai-btn-' + brand.replace(/[\s+]/g,'-');
+    const brandBtn = document.getElementById(btnId);
+    if (brandBtn) { brandBtn.disabled = true; brandBtn.textContent = '⏳ Running…'; brandBtn.classList.add('running'); }
+
+    try {
+      const rows = (window._cameraRows||[]).filter(r => r.brand === brand);
+      const currentList = rows.map(r =>
+        `${r.model} | ${r.type} | ${r.resolution} | ₹${r.price_inr} | ${(r.analytics||[]).slice(0,3).join(', ')}`
+      ).join('\n');
+
+      const prompt = `You are a surveillance camera product expert for the Indian market in Q1 2026.\n\nCurrent ${brand} camera models in our database (${rows.length} total):\n${currentList}\n\nReview this list against ${brand}'s actual current product lineup and return ONLY a JSON array — no text, no markdown:\n[\n  { "action": "add", "model": "MODEL-NAME", "type": "Fixed Dome|Fixed Bullet|Fixed Box|Mini Dome|PTZ|Panoramic|Thermal Bullet|Thermal PT|Thermal Temp|Thermal Dome|Corner|Corridor Dome", "resolution": "e.g. 4MP", "low_light": "★★★★☆", "price_inr": 45000, "cybersecurity": "brief features", "analytics": ["Feature 1","Feature 2"] },\n  { "action": "remove", "model": "EXACT-MODEL-NAME", "reason": "EOL reason" },\n  { "action": "update", "model": "EXACT-MODEL-NAME", "field": "price_inr", "new_value": 48000 }\n]\nReturn [] if no changes needed. Only include genuinely EOL models for removal. Only include real current models for addition.`;
+
+      const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000, messages:[{role:'user',content:prompt}] })
+      });
+      const data = await res.json();
+      const text = (data.content||[]).map(c=>c.text||'').join('').trim();
+      let suggestions;
+      try { suggestions = JSON.parse(text.replace(/```json|```/g,'').trim()); }
+      catch(e) { suggestions = []; allLogs.push(`<span style='color:#f87171'>✗ ${brand}: invalid AI response</span>`); }
+
+      if (suggestions && suggestions.length) {
+        for (const s of suggestions) {
+          try {
+            if (s.action === 'add') {
+              await _sb.from('cameras').insert({ brand, model:s.model, type:s.type, resolution:s.resolution, low_light:s.low_light||'★★★★☆', price_inr:s.price_inr||0, cybersecurity:s.cybersecurity||'', analytics:s.analytics||[], active:true });
+              totalAdds++; allLogs.push(`<span style='color:var(--money)'>[${brand}] + Added ${s.model}</span>`);
+            } else if (s.action === 'remove') {
+              await _sb.from('cameras').update({active:false}).eq('brand',brand).eq('model',s.model);
+              totalRemoves++; allLogs.push(`<span style='color:#f87171'>[${brand}] − Removed ${s.model}</span>`);
+            } else if (s.action === 'update') {
+              await _sb.from('cameras').update({[s.field]:s.new_value}).eq('brand',brand).eq('model',s.model);
+              totalUpdates++; allLogs.push(`<span style='color:#fbbf24'>[${brand}] ↻ Updated ${s.model} ${s.field} → ${s.new_value}</span>`);
+            }
+          } catch(e) { allLogs.push(`<span style='color:#f87171'>✗ ${brand} ${s.model}: ${e.message}</span>`); }
+        }
+      }
+    } catch(e) { allLogs.push(`<span style='color:#f87171'>✗ ${brand} failed: ${e.message}</span>`); }
+
+    if (brandBtn) { brandBtn.disabled = false; brandBtn.textContent = '✨ Refresh'; brandBtn.classList.remove('running'); }
+  }
+
+  await refreshCameraDB();
+  renderAiBrandGrid();
+
+  progress.style.display = 'none';
+  allBtn.disabled = false;
+  allBtn.textContent = '✨ Refresh All Brands';
+
+  // Show summary
+  const rp = document.getElementById('ai-result-panel');
+  document.getElementById('ai-result-brand').textContent = 'All Brands';
+  document.getElementById('ai-result-summary').textContent =
+    (totalAdds + totalRemoves + totalUpdates) === 0
+      ? '✓ All brands are up to date — no changes needed.'
+      : `${totalAdds} added · ${totalRemoves} removed · ${totalUpdates} updated across all brands`;
+  document.getElementById('ai-result-log').innerHTML = allLogs.join('<br>') || '<span style="color:var(--mid)">No changes applied.</span>';
+  rp.style.display = '';
+  rp.scrollIntoView({behavior:'smooth'});
+}
+
+
+/* ─────────────────────────────────────
+   FOOTER
+───────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', async () => {
+  // Load cameras from Supabase before showing the app
+  // (Supabase client _sb is initialised in the config block above this)
+  // Wait for _sb to be ready (it's synchronous init, so this is fine)
+  await loadCamerasDB();
+
+  const footer = document.createElement('div');
+  footer.className = 'ryaview-footer';
+  footer.innerHTML = `
+    All prices are indicative India distributor rates in INR. 
+    For regional pricing contact your local distributor.<br>
+    <strong>⚠ Exclusive of GST, customs duties, freight and installation.</strong> 
+    Confirm with authorised distributor before formal quotation.<br><br>
+    Designed &amp; powered by <a href='#'>ryaview.ai</a> · Camera Intelligence Platform · 
+    For authorised internal use only
+  `;
+  document.getElementById('shell')?.appendChild(footer);
+});
+</script>
+
+<script>
+/* ══════════════════════════════════════════════
+   ryaview.ai — CLIENT SECURITY LAYER
+   • Blocks right-click, F12, Ctrl+U, Ctrl+S, Ctrl+Shift+I/J/C
+   • Detects DevTools open (size method + debugger timing)
+   • Blurs and locks page when DevTools detected
+   • Logs security event to Supabase
+══════════════════════════════════════════════ */
+
+(function() {
+  'use strict';
+
+  // ── Block right-click ──
+  document.addEventListener('contextmenu', e => e.preventDefault());
+
+  // ── Block keyboard shortcuts ──
+  document.addEventListener('keydown', function(e) {
+    // F12
+    if (e.key === 'F12') { e.preventDefault(); return false; }
+    // Ctrl+U (view source), Ctrl+S (save), Ctrl+Shift+I/J/C (devtools)
+    if (e.ctrlKey && ['u','s','U','S'].includes(e.key)) { e.preventDefault(); return false; }
+    if (e.ctrlKey && e.shiftKey && ['i','j','c','I','J','C'].includes(e.key)) { e.preventDefault(); return false; }
+    // Ctrl+P (print — reveals source)
+    if (e.ctrlKey && ['p','P'].includes(e.key)) { e.preventDefault(); return false; }
+  });
+
+  // ── DevTools detection ──
+  let _devToolsOpen   = false;
+  let _blurOverlay    = null;
+
+  function createBlurOverlay() {
+    if (_blurOverlay) return;
+    _blurOverlay = document.createElement('div');
+    _blurOverlay.id = 'devtools-block';
+    _blurOverlay.style.cssText = [
+      'position:fixed','top:0','left:0','width:100vw','height:100vh',
+      'background:rgba(11,14,20,0.97)','z-index:999999',
+      'display:flex','flex-direction:column',
+      'align-items:center','justify-content:center','gap:16px',
+      'font-family:monospace'
+    ].join(';');
+    _blurOverlay.innerHTML = `
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div style="color:#f43f5e;font-size:14px;font-weight:700;letter-spacing:0.05em">UNAUTHORISED ACCESS DETECTED</div>
+      <div style="color:#6080a8;font-size:11px;letter-spacing:0.08em;text-transform:uppercase">Developer tools are not permitted on this page</div>
+      <div style="color:#3a5070;font-size:10px;margin-top:8px">Close DevTools to continue · This event has been logged</div>
+    `;
+    document.body.appendChild(_blurOverlay);
+
+    // Blur the main content behind
+    const app = document.getElementById('app') || document.querySelector('header');
+    if (app) app.style.filter = 'blur(8px)';
+
+    // Log to Supabase if user is signed in
+    try {
+      if (typeof _sb !== 'undefined' && typeof _currentUser !== 'undefined' && _currentUser) {
+        _sb.from('usage_events').insert({
+          user_id:    _currentUser.id,
+          email:      _currentUser.email,
+          event_type: 'security_devtools_detected',
+          metadata:   { ua: navigator.userAgent, ts: new Date().toISOString() }
+        });
+      }
+    } catch(e) {}
+  }
+
+  function removeBlurOverlay() {
+    if (_blurOverlay) {
+      _blurOverlay.remove();
+      _blurOverlay = null;
+    }
+    const app = document.getElementById('app') || document.querySelector('header');
+    if (app) app.style.filter = '';
+  }
+
+  // Method 1 — window outer vs inner size (most reliable)
+  const THRESHOLD = 160;
+  function checkDevToolsSize() {
+    const widthDiff  = window.outerWidth  - window.innerWidth;
+    const heightDiff = window.outerHeight - window.innerHeight;
+    return widthDiff > THRESHOLD || heightDiff > THRESHOLD;
+  }
+
+  // Poll every 1.5 seconds (window size method only — reliable, no side effects)
+  setInterval(function() {
+    const open = checkDevToolsSize();
+    if (open && !_devToolsOpen) {
+      _devToolsOpen = true;
+      createBlurOverlay();
+    } else if (!open && _devToolsOpen) {
+      _devToolsOpen = false;
+      removeBlurOverlay();
+    }
+  }, 1500);
+
+  // Also check on resize
+  window.addEventListener('resize', function() {
+    if (checkDevToolsSize()) {
+      _devToolsOpen = true;
+      createBlurOverlay();
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
