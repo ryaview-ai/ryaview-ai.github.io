@@ -2139,72 +2139,133 @@ function exportPDF() {
 
   // ── WINNER CARD ──
   let Y = 28;
-  const winColor = isAxis ? [79,142,247] : [0,200,83];
-  const winBG    = isAxis ? [17,27,50]   : [13,30,20];
-  bg(...winBG); ln(...winColor); doc.setLineWidth(0.6);
-  doc.roundedRect(ML, Y, CW, 52, 2, 2, 'FD');
+  const winColor  = isAxis ? [79,142,247]  : [0,200,83];
+  const winColor2 = isAxis ? [122,173,250] : [52,211,153];
+  const winBG     = isAxis ? [14,22,42]    : [11,26,18];
+  const winBorder = isAxis ? [40,80,160]   : [0,120,60];
 
-  // Winner badge
-  fg(...winColor); doc.setFontSize(6.5); doc.setFont('helvetica','bold');
-  doc.text('◎  RYAVIEW RECOMMENDS  ·  BEST OVERALL', ML+5, Y+7);
-  // Score badge
-  const scoreStr = winSc.total + '/108';
-  const sbW = doc.getTextWidth(scoreStr) + 8;
-  bg(...winColor); doc.roundedRect(CW+ML-sbW-5, Y+3, sbW, 7, 1, 1, 'F');
-  fg(13,17,23); doc.setFontSize(8); doc.setFont('helvetica','bold');
-  doc.text(scoreStr, CW+ML-sbW/2-5, Y+8.5, { align:'center' });
+  // Card — tall enough for reasons + USP pills
+  const CARD_H = isAxis ? 98 : 78;
+  bg(...winBG); doc.setDrawColor(...winBorder); doc.setLineWidth(0.5);
+  doc.roundedRect(ML, Y, CW, CARD_H, 2.5, 2.5, 'FD');
+  // Accent left edge strip
+  bg(...winColor); doc.rect(ML, Y+4, 1.5, CARD_H-8, 'F');
 
-  // Winner brand + model
-  fg(237,244,252); doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text(winner.brand + '  ' + winner.model, ML+5, Y+17);
-  fg(144,174,206); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
-  doc.text((winner.type||'')+'  ·  '+(winner.res||'')+'  ·  '+(winner.country||''), ML+5, Y+23);
+  // ── LEFT COLUMN (brand, reasons, USP pills) ──
+  const leftW  = CW * 0.58;  // 58% for left, 42% for right
+  const leftX  = ML + 6;
+  const rightX = ML + leftW + 8;
+  const rightW = CW - leftW - 12;
+
+  // "RYAVIEW RECOMMENDS" row
+  fg(...winColor); doc.setFontSize(6); doc.setFont('helvetica','bold');
+  doc.text('⬡  RYAVIEW RECOMMENDS', leftX, Y+8);
+  // "BEST OVERALL" badge
+  const boLabel = 'BEST OVERALL';
+  const boW = doc.getTextWidth(boLabel) + 6;
+  bg(...winColor); doc.roundedRect(leftX + doc.getTextWidth('⬡  RYAVIEW RECOMMENDS') + 4, Y+3.5, boW, 5.5, 1, 1, 'F');
+  fg(13,17,23); doc.setFontSize(5.5); doc.setFont('helvetica','bold');
+  doc.text(boLabel, leftX + doc.getTextWidth('⬡  RYAVIEW RECOMMENDS') + 4 + boW/2, Y+7.5, { align:'center' });
+
+  // Brand name + model
+  fg(237,244,252); doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text(winner.brand, leftX, Y+19);
+  const brandW = doc.getTextWidth(winner.brand);
+  fg(...winColor2); doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text('  ' + winner.model, leftX + brandW, Y+19);
+
+  // Type · Resolution · Country
+  fg(107,133,168); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text((winner.type||'') + '  ·  ' + (winner.res||'') + '  ·  ' + (winner.country||''), leftX, Y+26);
+
+  // Thin divider
+  bg(40,60,100); doc.rect(leftX, Y+30, leftW-8, 0.3, 'F');
+
+  // "WHY ... WINS BEYOND THE SPEC SHEET" heading
+  fg(...winColor); doc.setFontSize(6); doc.setFont('helvetica','bold');
+  doc.text('WHY ' + winner.brand.toUpperCase() + ' WINS BEYOND THE SPEC SHEET', leftX, Y+36);
+
+  // AI Reasons — wrap long text properly
+  if (reasons.length > 0) {
+    let ry = Y + 42;
+    reasons.slice(0, 3).forEach(r => {
+      fg(...winColor2); doc.setFontSize(7); doc.setFont('helvetica','bold');
+      doc.text('✓', leftX, ry);
+      fg(190,210,235); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
+      const lines = doc.splitTextToSize(r, leftW - 16);
+      doc.text(lines, leftX + 5, ry);
+      ry += lines.length * 4.5 + 2.5;
+    });
+  } else {
+    fg(107,133,168); doc.setFontSize(6.5); doc.setFont('helvetica','italic');
+    doc.text('AI analysis will appear here after comparison runs.', leftX + 5, Y + 45);
+  }
+
+  // ── USP PILLS (Axis only) ──
+  if (isAxis) {
+    const uspLabels = ['PSIRT Team','AXIS OS','TPM 2.0 Secure Boot','Zero Govt Ban Risk','5-Year Warranty','70K+ Integrations','Forensic WDR 120dB','Zipstream Compression'];
+    let px = leftX, py = Y + CARD_H - 22;
+    // Section heading
+    bg(25,40,70); doc.roundedRect(leftX, py-5, leftW-8, 0.3, 0, 0, 'F');
+    fg(79,142,247); doc.setFontSize(5.5); doc.setFont('helvetica','bold');
+    doc.text('WHY AXIS WINS BEYOND THE SPEC SHEET  ·  VERIFIED ADVANTAGES', leftX, py+1);
+    py += 5;
+    uspLabels.forEach(lbl => {
+      const tw = doc.getTextWidth(lbl);
+      const pillW = tw + 8;
+      // Wrap to next line if overflows
+      if (px + pillW > leftX + leftW - 8) { px = leftX; py += 7; }
+      bg(20,36,68); doc.setDrawColor(60,100,180); doc.setLineWidth(0.3);
+      doc.roundedRect(px, py-4, pillW, 5.5, 1, 1, 'FD');
+      fg(100,160,240); doc.setFontSize(5.5); doc.setFont('helvetica','normal');
+      doc.text(lbl, px + 4, py);
+      px += pillW + 3;
+    });
+  }
+
+  // ── RIGHT COLUMN (score + bars) ──
+  // Big score number — centred in right column
+  const scoreStr = String(winSc.total);
+  fg(...winColor); doc.setFontSize(44); doc.setFont('helvetica','bold');
+  doc.text(scoreStr, rightX + rightW/2, Y+28, { align:'center' });
+  fg(107,133,168); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
+  doc.text('/ 108 TOTAL SCORE', rightX + rightW/2, Y+34, { align:'center' });
+  if (isAxis) {
+    fg(...winColor2); doc.setFontSize(6); doc.setFont('helvetica','normal');
+    doc.text('incl. +' + winSc.trustBonus + ' trust index', rightX + rightW/2, Y+39, { align:'center' });
+  }
 
   // Score bars
   const bkd = winSc.breakdown;
   const bars = [
-    { label:'Value',       val:bkd.value,    max:22, color:[79,142,247] },
-    { label:'Low Light',   val:bkd.lowLight, max:20, color:[168,85,247] },
-    { label:'Storage',     val:bkd.storage,  max:18, color:[0,200,83]   },
-    { label:'Warranty',    val:bkd.warranty, max:15, color:[234,179,8]  },
-    { label:'AI Features', val:bkd.ai,       max:15, color:[236,72,153] },
-    { label:'Compression', val:bkd.compress, max:10, color:[20,184,166] },
-    { label:'Trust',       val:bkd.trust,    max:8,  color:[249,115,22] },
+    { label:'Value',        val:bkd.value,    max:22, color:[79,142,247]  },
+    { label:'Low Light',    val:bkd.lowLight, max:20, color:[168,85,247]  },
+    { label:'Storage Eff.', val:bkd.storage,  max:18, color:[0,200,83]    },
+    { label:'Warranty',     val:bkd.warranty, max:15, color:[234,179,8]   },
+    { label:'AI Features',  val:bkd.ai,       max:15, color:[236,72,153]  },
+    { label:'Compression',  val:bkd.compress, max:10, color:[20,184,166]  },
+    { label:'Trust Index',  val:bkd.trust,    max:8,  color:[249,115,22]  },
   ];
-
-  const barStartX = CW/2 + ML + 10;
-  const barW      = CW/2 - 20;
-  const barH      = 3.5;
-  const barGap    = 5.8;
+  const barH   = 3.8;
+  const barGap = 7;
+  const barLW  = 26;
+  const barTrackW = rightW - barLW - 14;
   bars.forEach((b, i) => {
-    const bY = Y + 29 + i * barGap;
+    const bY = Y + 45 + i * barGap;
     // Label
     fg(144,174,206); doc.setFontSize(6); doc.setFont('helvetica','normal');
-    doc.text(b.label, barStartX, bY+2.5);
-    const lw = 22;
-    // Track
-    bg(31,45,69); doc.roundedRect(barStartX+lw, bY, barW-lw-18, barH, 1, 1, 'F');
+    doc.text(b.label, rightX, bY + 2.8);
+    // Track bg
+    bg(31,45,69); doc.roundedRect(rightX + barLW, bY, barTrackW, barH, 1, 1, 'F');
     // Fill
-    const fillW = Math.max(2, (b.val/b.max) * (barW-lw-18));
-    bg(...b.color); doc.roundedRect(barStartX+lw, bY, fillW, barH, 1, 1, 'F');
-    // Score
+    const fillW = Math.max(1.5, (b.val / b.max) * barTrackW);
+    bg(...b.color); doc.roundedRect(rightX + barLW, bY, fillW, barH, 1, 1, 'F');
+    // Score text
     fg(205,218,235); doc.setFontSize(6); doc.setFont('helvetica','bold');
-    doc.text(b.val+'/'+b.max, barStartX+barW-14, bY+2.8, { align:'right' });
+    doc.text(b.val + '/' + b.max, rightX + rightW - 2, bY + 2.8, { align:'right' });
   });
 
-  // AI winner reasons
-  if (reasons.length > 0) {
-    fg(...winColor); doc.setFontSize(6.5); doc.setFont('helvetica','bold');
-    doc.text('WHY '+winner.brand.toUpperCase()+' WINS BEYOND THE SPEC SHEET', ML+5, Y+30);
-    fg(205,218,235); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-    reasons.slice(0,3).forEach((r, i) => {
-      const reasonY = Y + 35 + i * 6;
-      fg(...winColor); doc.text('✓', ML+5, reasonY);
-      fg(190,210,235); doc.text(r, ML+10, reasonY, { maxWidth: CW/2 - 15 });
-    });
-  }
-
-  Y += 58;
+  Y += CARD_H + 6;
 
   // ── COMPARISON TABLE ──
   const getScore = (cam) => scored.find(s => s.cam === cam)?.score;
@@ -2240,7 +2301,7 @@ function exportPDF() {
     ['Resolution',      ...cams.map(c => c.res || '—')],
     ['Country of Mfr.', ...cams.map(c => c.country || '—')],
     ['Low Light',       ...cams.map(c => ('●'.repeat(c.lowLight) + '○'.repeat(5-c.lowLight)) + '  (' + c.lowLight + '/5)')],
-    ['Unit Price (INR)',...cams.map(c => c.price ? pdfInr(c.price) : '—')],
+    ['Unit Price (INR)',...cams.map(c => c.priceNum > 0 ? pdfInr(c.priceNum) : '—')],
     ['Warranty',        ...cams.map(c => c.warranty + ' Years  —  ' + (c.warrantyType||''))],
     ['Compression',     ...cams.map(c => (c.codecs||[]).join(', ') + '\n' + (c.saving||''))],
     ['Storage / hr',    ...cams.map(c => (c.storageBase||'—') + ' GB/hr')],
