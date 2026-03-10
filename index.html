@@ -1061,7 +1061,8 @@ async function fetchForex() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': 'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'
+        'apikey': 'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ',
+        'Authorization': 'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
@@ -2013,7 +2014,7 @@ STRICT RULES — every rule is mandatory:
 
       const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': 'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ' },
+        headers: { 'Content-Type': 'application/json', 'apikey': 'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ', 'Authorization': 'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1500,
@@ -3179,7 +3180,7 @@ Return [] if no changes needed. Only include genuinely EOL models for removal. O
   try {
     const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','apikey':'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ','Authorization':'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'},
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 2000,
@@ -3266,7 +3267,7 @@ async function runAiRefreshAll() {
 
       const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json','apikey':'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ','Authorization':'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'},
         body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000, messages:[{role:'user',content:prompt}] })
       });
       const data = await res.json();
