@@ -1117,8 +1117,7 @@ async function fetchForex() {
 
 // Fetch on page load after auth
 window.addEventListener('DOMContentLoaded', () => {
-  window.RYAVIEW_LOGO_B64=null;
-  (async()=>{try{const r=await fetch('https://ryaview-ai.github.io/ryaview-logo.png');if(r.ok){const b=await r.blob();window.RYAVIEW_LOGO_B64=await new Promise(res=>{const rd=new FileReader();rd.onloadend=()=>res(rd.result);rd.readAsDataURL(b);});}}catch(e){}})();
+  window.RYAVIEW_LOGO_B64='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCABMASEDASIAAhEBAxEB/8QAHAABAAEFAQEAAAAAAAAAAAAAAAcBAgMGCAQF/8QAPxAAAQMDAgQCBgkCAwkAAAAAAQACAwQFEQYHEhMhMQhBFCIyUYGxFSM0UmFxcpGhQoIWJLIzNjdkdbPB0fD/xAAaAQEAAwEBAQAAAAAAAAAAAAAAAQIFAwYE/8QAKxEAAgIBAwMDAwQDAAAAAAAAAAECEQMEEjEFIVFBYYETFKEGcbHxkcHw/9oADAMBAAIRAxEAPwDldERaB8gREQBFUNJVwjcUBYivMTlQtIQFqIiAIiIAiIgCIiAIiIAiIgCIiAIiIArlaFcEBUK9oVGhZWNVWyUijW5VwYsrGLIGD3KjkWSPMWKhYvWWfgsbmKFIUeRzVaQvQ9qwuC6JlWjGrVeQrSrEFEREAREQBXsGSrFliOHIwj6Nst01XK2KGJ8j3HAa1uSVuNFtxqeeMObZKwA9uOMt+a+ntFr+3aUppKers7ZnSOz6TFjmgfd6+XxUr0e7Ok52gySVUB9z4SflleO6v1bquDK46fT3FevN/C4NvRaPR5IJ5MtPxx/JDk22GqWsLvoac/gACVqV/sNfaZuTX0U9LJ92Vhaf5XS026ej44+IV0rz91sD8/yFFm8W4lv1RQR26goHNijfx8+bHHn3ADsPiuXSer9X1GdQz6eo+r7qv88l9ZotFjxuWPJb8c/wQ9I3BViyzHLisS9qjBCyOA9GYcDJe4Z+DVjWV32WP9bvk1SDEiIgCIiAIiIAiIgCItv2z241TuLV1lLpelgqJaKNskwlnbGAHEgYz37FAagi9d5t9VaLxW2qta1lVRVElPM1rsgPY4tcAR36gryICoVwVgV4QkvZ5L6lhpKeuutPS1dZHRQSOw+d/Zg/+6fFfMYs7Fxypyi0nT8+C8Gk02rJ90rp7QFMIxB9F10mPbmnZMXfjgnH7Bb9b7BpyZgAstqkYf8AlYyPkuTYl6oXPjcHRvcxw7FpwV4vV/pfNnlu+6lfur/2jfxdZxwVfRXx/R1m/b7RVY0tm0zbQD35UXL/ANOF8i67EaIuMRFE2utcuPVdDOZGg/iH5JH5ELnWG+32FuIbzcYx7mVTx/5WwaWtu4msoaxlkr7nXR0waZ2vuXAAHZx0e8Z7FcMfRNdo1vesqK83X5dEZNfp8/ZYbf8A3sa1uDpt2k9V11hdXQV5pXAc+HoHZaDgjrgjOCPIrW3heyoaQ5wd7QPVeV4XuMKlGCUnb9X59zCnTbpUedysKyPCxlfQjmUREUkBERAFVpwqIgM8czm9ivQytePMrwKWaDbC0ad2/g1ruTcLhRQ1+BbLVQcAqqjIyHOc8FrBjr2PTHn0VXFMlNkbOrpCMZXnlnc/uVNmldttudS7UXzX1PUapoGWmKUSUc1TBJxStYHN4ZBE0FpyB7IKgtFFIWypOVREViAsrvssf63fJqxLK77LH+t3yagMS37Yrbk7oazm04LwLSY6J9VzzTc7PC5jeHh4m/f758loKn3wJ/8AGar/AOiz/wDdhUPsgj7dF4SrmKSuq7xrSmt8ED5DDw0BldJE3OHuHMaGEgZwC7A8/JaHvzslVbX2q1XaO/svdBcHmMytpeRy38PE0Y43ZBGTnI7Kni01BdbvvXe6Gtq5ZKS2yNp6SDiPBE3gaSQO2SSST/6U26GkG8vhOrLBM7nXm0RGBhccuMsIDoTnv6zcAn81W2u5bsQVsFs5WbrTXRwvAs9Hb2s4ql1Lzg97s+oBxtxgDOc+5bhtv4aKzVRrrnV6mbQafhqZIaSqNJ9bWMY4tMoYX4YwkdCScjyUiWcHZrwiS1rm8i93mPjHQB4mnGGZ/RHg/Ar5m3O2V8qNmInbm7n19k0jVwxystomjYIo+hjDpZQeAHp9W0Y+SNsUfL1b4UB9C1Fx0VrGO6ywtJbSzxNHMI7gSMcQD7gW/ELQ49i5avZKbci26k9JlponvqrY+gMbonRv4ZWF/GercE+yM48l0z4cqPaS11F5tm2N6rbnLE2J1wdLJK5n9QY4cTWsJ6O6sHl18lpPhj1DT1uudyNu7iQ+nqLlV1VPE45BaZHMlaB5DHCfiVG5ikc37K7e1e5mto9OU1cKBnIfPNVGHmiJrcf05Gckgdx3UybTbWagtO6uq9I6M3Smtk1rpqf0ysitTXCZziTy+EyHHDkdc9yR5Ld/Dxo2Paaw6/1TfG8HoVRNTwyPPV1PBkg/3Ej9gta8D10qr5uHrm8Vry6prY455CTn1nSvOPy6qW+QkQfSaC1PrLd+76Utsv0lc2XGpbVVsreWw8Mrg+Z+M8IJ64GepwMqb4/Cjp2nZHbrluVHFepm5jibTxtBP4Ruk4nD8chbl4VKGkGvN1LnwtNWdQzQE+YjEsjv5JP7LTNXaT8PV01hcbzed2b+y7y1b5JzzmtdFIHeyP8AL5HCRgdemAluxRo8XhzvFNurDoi9X6KhgraWSot1zjpDLHU8GMs4S9pa4A5Iye3nlaTq3bW56f3eG3YnNXUSVUMEFSIeESNkxh/Dk4AycjPkV0lvHu7t8bbpO46f1RT3a5WS8U82Q1/MMPCWTE+qAcsJ+Pkt+v8AoCmu+++mdw2sa6lpLXKZJMnBkGOSfd7Msh/tCjc1yKOU9+dlKvaqjtdab628U1dI+JzxScjlPABAxxuzkZ93Zemq2WNu2Ri3LuepW0xngZLDbxRFxfxuxGOZxjuCD7PT8VP+p5KTfrae+UFvcwVVuvroYXAAlrWSgBw/OJxWm+Ni8Q2nTemNCUB4Imt58jGnoGRt4GAj8yT8FRtvsWo5fiUnbc7V1+qLSbzW3GK0W3ry5Xx8bpMHqcZADe/Uny7KMIipw0rousn0BTVOttaVFr0/NwSRURlHs4JZhz8hpPcMAP7rF61qpafEtmTY26utz+F6v8H26HEsk3ujaS80vlmO+bJyNsk9001qOmvXJBcYWxhpcAMkNc1zgXfh0Xzti9N6gv7L19B6sqdP+jtjMwijLudnjwDhwxjB/dSrslT6BpKm402i7rXXB/Aw1Rn4g3GTw92NGe/YLXvC9gV+sgBgB8fzlXn31LU/baiE224bacopPu/WPH7Gh9ti+pjcVV3w7Xb3Oc6kESvBOSHHJ968ci9lYfr5P1H5rxSFe6hwYTML1jKvcrCuyKFqIikUEREICIiA+xoimpq3Wljo60NNLPcaeKYO7FjpGh2fgSpr8ck1WNf2WidGW0MFsBp/u8TnuDwPg1i59Y90b2vY4te05a4HBB94UuTeILWtTaKOiuFs0zcaqiZimuVZbubVROxjjaS7hDsefCgN21XDPonwcWu1TxyU9bfqxrpGuYWuAc4yYIPUeoxoXNilev361lc9JR6dvVu05eY4x6tVcbd6RMHdcP8AXcWcQz34FFChAIiKQFld9lj/AFu+TViWV32WP9bvk1AYlL3hO1lpvQ25tTedU3L6PoX2uWBsvIklzI6SMgYja49mnrjHRRCihqwbrvpfLXqXdrUN9slV6VbqypD4JuW5nG3gaM8LgHDqD3CkjwPajrrbunNYI45JqK7Uruc1oyI3R+s159w7t/uCgJTx4SdYbfaCq75qHVt5bS3N8Ip6GAUc0riz2nkOYwgcRDR1I7KHwSuT7Xjr1eLhq+2aOpJP8vaoefUNbjHOkHqj8wz/AFLbbdr3afdvaC26U13qJ+n7hQsi5vr8k8yNvCHsc5rmOaRnoeoz5dCuV9aX6q1Pqy6agrHOM1fVPnIP9IJ6N+AwPgvkJt7CztHbPcTYDasz6bsOoKiSKUGaruktPLNzpBgNZlkfXoSfVAaPfklc66T1zT6a3/drSjqHvtrrzPLI9ocOZTSyO4jw4z7LuLBGcgKOERRFnV/ii3w0bqbbc6b0ReXV01fUt9NLaaaDgib63d7G5y4NGB5ZWj+D7cDSOgb5qCp1bdvo6KrpomQO9Gll43Nc4kfVtdjoR3UEIm1VQvvZNm2W8cGg96dS3yNstfpu93GofOI2kPMZme6OVrXY6gO7HHQnzUuXKn8LOqb47WdbeaJk8z+fUUz6iWFsr+5LoSAc+8N6Hr3yuN0RxFk1+KDc3SWuLjR2/R9kpIqOi9u5uomxTVGBhrWnHEIwPI4JPkMdZNsviD01S+Hdtrku7xrCG1uo46Z1NKSXgFjX8Ybwezh3tfyuR1UJtQsnTwj7n2XQF/u1Jqe4OorRXwNeJOU+UMmYenqsaT1Dj1x5Bav4hNaUuut1LlerdUc+2saynopOBzOKJo74cARlxceoHdRqCsjSoce9kpkiaqdt7/gW1f4f/wB4PqvTv9v9w8ft+p7WPZ+HRb9Tan0DrjQFrsuqbtPZ663Na0FrTglreHiB4SCCPI4Of5gJjlkD1i5ujQyQinklui21K7av0449j7oa2UZNqKpqmq7f2dKbfa12p0RUTWi13GqdBKzmz3KeGR3MeCA2MBrM4ALjnAH4nK1vYXXOl9L1mp5L7dPRG1r2GmPIkfx4MmfYace0O+O6hHmH3q1z1xXQMDjkjKcm51bbV9nfgs9fO4tJLbdfJkqnh0r3A5BcSF5HlXPdlYnFb8Y0Z7Za7urCrirSuhUoiIgCIiAIiIAiIgCIiAIiIAq5OMZOB1wqIgCIiAIiIAiIgCIiAIiIAiIgCBEQFwVwKsCqEBkBVwcsSrkqtEmXjVC5Y8lMlKFlxKsJQqimiASrUKKQEREB/9k=';
   // Module pages init on demand via sw() - not on startup
   // Audio loads when tab is first clicked
   setTimeout(fetchForex, 1000);
@@ -2125,8 +2124,8 @@ function exportPDF() {
   if (logoB64) {
     try {
       const logoH = 14;
-      const logoW = logoH * (427 / 109);
-      doc.addImage(logoB64, 'PNG', 12, 5, logoW, logoH);
+      const logoW = logoH * (289 / 76);
+      doc.addImage(logoB64, 'JPEG', 12, 5, logoW, logoH);
     } catch(e) {
       // Fallback: draw manually
       bg(232,168,32); doc.roundedRect(12, 6.5, 14, 3, 1.5, 1.5, 'F');
@@ -2830,28 +2829,29 @@ function boqPDFDoc(brand, rows, meta, isAlt, isAudio) {
   doc.setFillColor(17,21,32); doc.rect(0,1,PW,22,'F');
   doc.setFillColor(31,45,69); doc.rect(0,23,PW,0.3,'F');
 
-  // ── LOGO (drawn cleanly) ──
-  // Gold brushstroke bar
-  doc.setFillColor(232,168,32);
-  doc.roundedRect(ML+1, 5, 16, 2.8, 1.2, 1.2, 'F');
-  // Italic 'a' in white
-  doc.setTextColor(240,245,255); doc.setFontSize(16); doc.setFont('helvetica','bolditalic');
-  doc.text('a', ML+9, 17, { align:'center' });
-  // Thin vertical separator
-  doc.setFillColor(60,80,110); doc.rect(ML+20, 5.5, 0.4, 14, 'F');
-  // 'ryaview' in bright white
-  doc.setTextColor(245,248,255); doc.setFontSize(18); doc.setFont('helvetica','bold');
-  doc.text('ryaview', ML+23, 16.5);
-  const rww = doc.getTextWidth('ryaview');
-  // Gold brushstroke above '.ai'
-  doc.setFillColor(232,168,32);
-  doc.roundedRect(ML+23+rww-1, 5, doc.getTextWidth('.ai')+3, 2.2, 0.8, 0.8, 'F');
-  // '.ai' in gold
-  doc.setTextColor(232,168,32); doc.setFontSize(18); doc.setFont('helvetica','bold');
-  doc.text('.ai', ML+23+rww, 16.5);
-  // Subtitle
-  doc.setTextColor(120,150,190); doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.text('CAMERA INTELLIGENCE  |  INTERNAL', ML+23, 21);
+  // ── LOGO — embedded permanently ──
+  const logoB64 = window.RYAVIEW_LOGO_B64;
+  if (logoB64) {
+    try {
+      const logoH = 14;
+      const logoW = logoH * (289 / 76);  // actual image aspect ratio
+      doc.addImage(logoB64, 'JPEG', ML+1, 4.5, logoW, logoH);
+    } catch(e) {
+      // Fallback text only
+      doc.setTextColor(245,248,255); doc.setFontSize(18); doc.setFont('helvetica','bold');
+      doc.text('ryaview', ML+4, 16);
+      doc.setTextColor(232,168,32);
+      doc.text('.ai', ML+4+doc.getTextWidth('ryaview'), 16);
+    }
+  } else {
+    doc.setTextColor(245,248,255); doc.setFontSize(18); doc.setFont('helvetica','bold');
+    doc.text('ryaview', ML+4, 16);
+    doc.setTextColor(232,168,32);
+    doc.text('.ai', ML+4+doc.getTextWidth('ryaview'), 16);
+  }
+  // Subtitle below logo
+  doc.setTextColor(120,150,190); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
+  doc.text('CAMERA INTELLIGENCE  |  INTERNAL', ML+2, 21);
 
   // ── DOCUMENT TYPE + DATE (top right) ──
   const badgeLabel = isAlt ? 'ALTERNATIVE BOQ' : (isAudio ? 'AUDIO BOQ' : 'BILL OF QUANTITIES');
