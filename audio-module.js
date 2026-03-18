@@ -874,10 +874,13 @@ function loadAudioModels(slot) {
 }
 
 /* ── INIT AUDIO PAGE ── */
-function initAudioPage() {
+async function initAudioPage() {
   const el = document.getElementById('page-audio');
   if (!el) return;
   el.innerHTML = AUDIO_PAGE_HTML;
+  if (!AUDIO_DB || Object.keys(AUDIO_DB).length === 0) {
+    await loadAudioDB();
+  }
   renderAudioBrandStrip();
   switchAudioTab('boq');
 }
