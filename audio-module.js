@@ -779,16 +779,9 @@ const AUDIO_PAGE_HTML = `
       <div class="fl">Brand</div>
       <select class="csel" id="ab${i}" onchange="loadAudioModels(${i})">
         <option value="">— brand —</option>
-        <option value="Axis">Axis</option>
-        <option value="TOA">TOA</option>
-        <option value="Tonmind">Tonmind</option>
-        <option value="Algo">Algo</option>
-        <option value="Commend">Commend</option>
-        <option value="DSPPA">DSPPA</option>
-        <option value="Ahuja">Ahuja</option>
       </select>
       <div class="fl">Model</div>
-      <select class="csel" id="am${i}"><option value="">— model —</option></select>
+      <select class="csel" id="am${i}" ${i===1 ? 'onchange="onAudioSlot1ModelChange()"' : ''}><option value="">— model —</option></select>
     </div>`).join('')}
   </div>
   <div style="display:flex;justify-content:center;margin:16px 0">
@@ -862,9 +855,36 @@ function switchAudioTab(tab) {
     document.getElementById('audio-tab-'+t).classList.toggle('on', t===tab);
   });
   if (tab === 'boq') renderAudioBrandStrip();
+  if (tab === 'compare') populateAudioCompareBrands();
 }
 
-/* ── LOAD AUDIO MODELS INTO COMPARE DROPDOWNS ── */
+/* ── POPULATE AUDIO COMPARE BRAND DROPDOWNS (dynamic from DB) ── */
+function populateAudioCompareBrands() {
+  const brands = Object.keys(AUDIO_DB);
+  if (!brands.length) return;
+  for (let i = 1; i <= 5; i++) {
+    const sel = document.getElementById('ab'+i);
+    if (!sel) continue;
+    const currentVal = sel.value;  // preserve existing selection
+    sel.innerHTML = '<option value="">\u2014 brand \u2014</option>';
+    brands.forEach(b => {
+      const o = document.createElement('option');
+      o.value = b; o.textContent = b;
+      sel.appendChild(o);
+    });
+    if (currentVal) sel.value = currentVal;  // restore selection
+  }
+}
+
+/* ── WHEN SLOT 1 MODEL CHANGES, RE-MATCH ALL OTHER SLOTS ── */
+function onAudioSlot1ModelChange() {
+  for (let s = 2; s <= 5; s++) {
+    const bsel = document.getElementById('ab'+s);
+    if (bsel && bsel.value) loadAudioModels(s);
+  }
+}
+
+/* ── LOAD AUDIO MODELS INTO COMPARE DROPDOWNS — auto-match slots 2-5 ── */
 function loadAudioModels(slot) {
   const brand = document.getElementById('ab'+slot)?.value;
   const sel   = document.getElementById('am'+slot);
@@ -874,7 +894,7 @@ function loadAudioModels(slot) {
   const grouped = {};
   const seen = new Set();
   (AUDIO_DB[brand]||[]).forEach(p => {
-    if (seen.has(p.m)) return;  // skip duplicates
+    if (seen.has(p.m)) return;
     seen.add(p.m);
     if (!grouped[p.cat]) grouped[p.cat] = [];
     grouped[p.cat].push(p);
@@ -885,11 +905,38 @@ function loadAudioModels(slot) {
     prods.forEach(p => {
       const o = document.createElement('option');
       o.value = `${p.m}|${p.cat}`;
-      o.textContent = `${p.m}${p.spl?' — '+p.spl+'dB':''}`;
+      o.textContent = `${p.m}${p.spl?' \u2014 '+p.spl+'dB':''}`;
       og.appendChild(o);
     });
     sel.appendChild(og);
   });
+
+  // Slot 1 — just pick first model, then re-match others
+  if (slot === 1) {
+    sel.selectedIndex = 1;
+    for (let s = 2; s <= 5; s++) {
+      const bsel = document.getElementById('ab'+s);
+      if (bsel && bsel.value) loadAudioModels(s);
+    }
+    return;
+  }
+
+  // Slots 2-5 — auto-match against slot 1's selection
+  const ref = document.getElementById('am1')?.value;
+  if (ref) {
+    const [refModel, refCat] = ref.split('|');
+    const slot1Brand = document.getElementById('ab1')?.value;
+    const refProduct = (AUDIO_DB[slot1Brand] || []).find(p => p.m === refModel);
+    const refSpl = refProduct?.spl || 90;
+    const match = findBestAudioMatch(brand, refCat, refSpl);
+    if (match) {
+      const optVal = `${match.m}|${match.cat}`;
+      const opt = Array.from(sel.options).find(o => o.value === optVal);
+      if (opt) { sel.value = opt.value; return; }
+    }
+  }
+  // Fallback — pick first model
+  sel.selectedIndex = 1;
 }
 
 /* ── INIT AUDIO PAGE ── */
