@@ -3436,6 +3436,9 @@ function renderAiBrandGrid() {
   const grid = document.getElementById('ai-brand-grid');
   if (!grid) return;
   const rows = window._cameraRows || [];
+  const audioRows = window._audioRows || [];
+  const audioBrands = Object.keys(AUDIO_DB || {});
+
   grid.innerHTML = `
     <div class='ai-refresh-intro' style='grid-column:1/-1'>
       AI Refresh calls Claude to check each brand's current lineup and auto-applies 
@@ -3447,6 +3450,21 @@ function renderAiBrandGrid() {
       <div class='ai-brand-tile-name' style='color:${BRAND_COLORS[brand]||"var(--head)"}'>${brand}</div>
       <div class='ai-brand-tile-count'>${count} models</div>
       <button class='ai-run-btn' id='ai-btn-${brand.replace(/[\s+]/g,"-")}' onclick="runAiRefresh('${brand}')">✨ Refresh</button>
+    </div>`;
+  }).join('') +
+  `<div style='grid-column:1/-1;margin-top:24px;padding-top:20px;border-top:1px solid var(--line)'>
+    <div style='display:flex;align-items:center;gap:12px;margin-bottom:16px'>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      <span style='font-size:14px;font-weight:700;color:var(--head)'>Audio Products</span>
+      <button class='ai-run-btn' style='padding:6px 16px;font-size:11px' onclick="runAudioAiRefreshAll()">✨ Refresh All Audio</button>
+    </div>
+  </div>` +
+  audioBrands.map(brand => {
+    const count = audioRows.filter(r => r.brand === brand).length;
+    return `<div class='ai-brand-tile'>
+      <div class='ai-brand-tile-name' style='color:${AUDIO_BRAND_COLORS[brand]||"var(--head)"}'>${brand}</div>
+      <div class='ai-brand-tile-count'>${count} audio products</div>
+      <button class='ai-run-btn' id='ai-audio-btn-${brand.replace(/[\s+]/g,"-")}' onclick="runAudioAiRefresh('${brand}')">✨ Refresh</button>
     </div>`;
   }).join('');
 }
@@ -3608,6 +3626,159 @@ async function runAiRefreshAll() {
     (totalAdds + totalRemoves + totalUpdates) === 0
       ? '✓ All brands are up to date — no changes needed.'
       : `${totalAdds} added · ${totalRemoves} removed · ${totalUpdates} updated across all brands`;
+  document.getElementById('ai-result-log').innerHTML = allLogs.join('<br>') || '<span style="color:var(--mid)">No changes applied.</span>';
+  rp.style.display = '';
+  rp.scrollIntoView({behavior:'smooth'});
+}
+
+/* ═══════════════════════════════════════════════════════
+   AUDIO AI REFRESH
+═══════════════════════════════════════════════════════ */
+async function runAudioAiRefresh(brand) {
+  const btnId = 'ai-audio-btn-' + brand.replace(/[\s+]/g,'-');
+  const btn = document.getElementById(btnId);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Running…'; btn.classList.add('running'); }
+
+  const rows = (window._audioRows||[]).filter(r => r.brand === brand);
+  const currentList = rows.map(r =>
+    `${r.model} | ${r.category} | ${r.spl_db||'N/A'}dB | ${r.ip_rating||'N/A'} | ₹${r.price_inr} | SIP:${r.sip_support?'Yes':'No'}`
+  ).join('\n');
+
+  const prompt = `You are a network audio / PA system product expert for the Indian surveillance and security market in Q1 2026.
+
+Current ${brand} audio products in our database (${rows.length} total):
+${currentList}
+
+Review this list against ${brand}'s actual current audio product lineup (speakers, amplifiers, paging consoles, audio bridges, sound projectors) and return ONLY a JSON array — no text, no markdown:
+[
+  { "action": "add", "model": "MODEL-NAME", "category": "Horn Speaker|Ceiling Speaker|Cabinet Speaker|Mini Speaker|Pendant Speaker|Sound Projector|Display Speaker|Strobe Speaker|Column Speaker|Wall Speaker|Network Amplifier|Amplifier|Paging Console|SIP Horn Speaker|SIP Ceiling Speaker|Public Address System", "spl_db": 110, "freq_low": 400, "freq_high": 8000, "coverage_angle": "110x110", "amplifier_watts": 6, "ip_rating": "IP66", "poe_class": "PoE", "poe_watts": 13, "sip_support": true, "audio_manager": "description", "cybersecurity": "brief features", "warranty": 5, "price_inr": 42000 },
+  { "action": "remove", "model": "EXACT-MODEL-NAME", "reason": "EOL reason" },
+  { "action": "update", "model": "EXACT-MODEL-NAME", "field": "price_inr", "new_value": 48000 }
+]
+Return [] if no changes needed. Only include genuinely discontinued models for removal. Only include real current models for addition. Include ALL current active audio products — do NOT cap the list.`;
+
+  try {
+    const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ','Authorization':'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages:[{ role:'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = (data.content||[]).map(c=>c.text||'').join('').trim();
+    let suggestions;
+    try { suggestions = JSON.parse(text.replace(/```json|```/g,'').trim()); }
+    catch(e) { throw new Error('AI returned invalid JSON: ' + text.slice(0,200)); }
+
+    let adds = 0, removes = 0, updates = 0;
+    const log = [];
+    for (const s of suggestions) {
+      try {
+        if (s.action === 'add') {
+          await _sb.from('audio_products').insert({
+            brand, model:s.model, category:s.category, spl_db:s.spl_db||null,
+            freq_low:s.freq_low||null, freq_high:s.freq_high||null,
+            coverage_angle:s.coverage_angle||null, amplifier_watts:s.amplifier_watts||null,
+            ip_rating:s.ip_rating||'', poe_class:s.poe_class||'',
+            poe_watts:s.poe_watts||null, sip_support:s.sip_support||false,
+            audio_manager:s.audio_manager||'', cybersecurity:s.cybersecurity||'',
+            warranty:s.warranty||2, price_inr:s.price_inr||0, active:true
+          });
+          adds++; log.push(`<span style='color:var(--money)'>[${brand}] + Added ${s.model}</span>`);
+        } else if (s.action === 'remove') {
+          await _sb.from('audio_products').update({active:false}).eq('brand',brand).eq('model',s.model);
+          removes++; log.push(`<span style='color:#f87171'>[${brand}] − Removed ${s.model} (${s.reason||'EOL'})</span>`);
+        } else if (s.action === 'update') {
+          await _sb.from('audio_products').update({[s.field]:s.new_value}).eq('brand',brand).eq('model',s.model);
+          updates++; log.push(`<span style='color:#fbbf24'>[${brand}] ↻ Updated ${s.model} ${s.field} → ${s.new_value}</span>`);
+        }
+      } catch(e) { log.push(`<span style='color:#f87171'>✗ ${brand} ${s.model}: ${e.message}</span>`); }
+    }
+
+    // Reload audio DB
+    await loadAudioDB();
+    renderAiBrandGrid();
+
+    const rp = document.getElementById('ai-result-panel');
+    document.getElementById('ai-result-brand').textContent = brand + ' (Audio)';
+    document.getElementById('ai-result-summary').textContent =
+      suggestions.length === 0 ? '✓ Audio database is up to date.' : `${adds} added · ${removes} removed · ${updates} updated`;
+    document.getElementById('ai-result-log').innerHTML = log.join('<br>') || '<span style="color:var(--mid)">No changes applied.</span>';
+    rp.style.display = '';
+    rp.scrollIntoView({behavior:'smooth'});
+
+  } catch(e) {
+    showToast('Audio AI refresh failed: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨ Refresh'; btn.classList.remove('running'); }
+  }
+}
+
+async function runAudioAiRefreshAll() {
+  const audioBrands = Object.keys(AUDIO_DB || {});
+  if (!audioBrands.length) { showToast('No audio brands loaded.'); return; }
+
+  let totalAdds = 0, totalRemoves = 0, totalUpdates = 0;
+  const allLogs = [];
+
+  for (let i = 0; i < audioBrands.length; i++) {
+    const brand = audioBrands[i];
+    const btnId = 'ai-audio-btn-' + brand.replace(/[\s+]/g,'-');
+    const btn = document.getElementById(btnId);
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; btn.classList.add('running'); }
+
+    try {
+      const rows = (window._audioRows||[]).filter(r => r.brand === brand);
+      const currentList = rows.map(r =>
+        `${r.model} | ${r.category} | ${r.spl_db||'N/A'}dB | ${r.ip_rating||'N/A'} | ₹${r.price_inr} | SIP:${r.sip_support?'Yes':'No'}`
+      ).join('\n');
+
+      const prompt = `You are a network audio / PA system product expert for the Indian surveillance and security market in Q1 2026.\n\nCurrent ${brand} audio products in our database (${rows.length} total):\n${currentList}\n\nReview this list against ${brand}'s actual current audio product lineup and return ONLY a JSON array — no text, no markdown:\n[\n  { "action": "add", "model": "MODEL-NAME", "category": "Horn Speaker|Ceiling Speaker|Wall Speaker|Column Speaker|Amplifier|Paging Console|SIP Horn Speaker|SIP Ceiling Speaker|Network Amplifier|Public Address System", "spl_db": 110, "ip_rating": "IP66", "sip_support": true, "warranty": 2, "price_inr": 42000 },\n  { "action": "remove", "model": "EXACT-MODEL-NAME", "reason": "EOL reason" },\n  { "action": "update", "model": "EXACT-MODEL-NAME", "field": "price_inr", "new_value": 48000 }\n]\nReturn [] if no changes needed.`;
+
+      const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ','Authorization':'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'},
+        body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000, messages:[{role:'user',content:prompt}] })
+      });
+      const data = await res.json();
+      const text = (data.content||[]).map(c=>c.text||'').join('').trim();
+      let suggestions;
+      try { suggestions = JSON.parse(text.replace(/```json|```/g,'').trim()); }
+      catch(e) { suggestions = []; allLogs.push(`<span style='color:#f87171'>✗ ${brand}: invalid AI response</span>`); }
+
+      if (suggestions && suggestions.length) {
+        for (const s of suggestions) {
+          try {
+            if (s.action === 'add') {
+              await _sb.from('audio_products').insert({ brand, model:s.model, category:s.category||'Speaker', spl_db:s.spl_db||null, ip_rating:s.ip_rating||'', sip_support:s.sip_support||false, warranty:s.warranty||2, price_inr:s.price_inr||0, active:true });
+              totalAdds++; allLogs.push(`<span style='color:var(--money)'>[${brand}] + Added ${s.model}</span>`);
+            } else if (s.action === 'remove') {
+              await _sb.from('audio_products').update({active:false}).eq('brand',brand).eq('model',s.model);
+              totalRemoves++; allLogs.push(`<span style='color:#f87171'>[${brand}] − Removed ${s.model}</span>`);
+            } else if (s.action === 'update') {
+              await _sb.from('audio_products').update({[s.field]:s.new_value}).eq('brand',brand).eq('model',s.model);
+              totalUpdates++; allLogs.push(`<span style='color:#fbbf24'>[${brand}] ↻ Updated ${s.model} ${s.field} → ${s.new_value}</span>`);
+            }
+          } catch(e) { allLogs.push(`<span style='color:#f87171'>✗ ${brand} ${s.model}: ${e.message}</span>`); }
+        }
+      }
+    } catch(e) { allLogs.push(`<span style='color:#f87171'>✗ ${brand} failed: ${e.message}</span>`); }
+
+    if (btn) { btn.disabled = false; btn.textContent = '✨ Refresh'; btn.classList.remove('running'); }
+  }
+
+  await loadAudioDB();
+  renderAiBrandGrid();
+
+  const rp = document.getElementById('ai-result-panel');
+  document.getElementById('ai-result-brand').textContent = 'All Audio Brands';
+  document.getElementById('ai-result-summary').textContent =
+    (totalAdds + totalRemoves + totalUpdates) === 0
+      ? '✓ All audio brands are up to date.'
+      : `${totalAdds} added · ${totalRemoves} removed · ${totalUpdates} updated across all audio brands`;
   document.getElementById('ai-result-log').innerHTML = allLogs.join('<br>') || '<span style="color:var(--mid)">No changes applied.</span>';
   rp.style.display = '';
   rp.scrollIntoView({behavior:'smooth'});
