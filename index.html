@@ -2814,114 +2814,111 @@ function pdfInr(n) {
 /* ─────────────────────────────────────
    BOQ PDF EXPORT (main + alt)
 ───────────────────────────────────── */
-function boqPDFDoc(brand, rows, meta, isAlt) {
+function boqPDFDoc(brand, rows, meta, isAlt, isAudio) {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-  const PW = 210, PH = 297, ML = 14, MR = 14, CW = PW - ML - MR;
+  const doc = new jsPDF({ orientation:'landscape', unit:'mm', format:'a4' });
+  const PW = 297, PH = 210, ML = 12, MR = 12, CW = PW - ML - MR;
   const dateStr = new Date(meta.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
 
   // ── Page background ──
   doc.setFillColor(13,17,23); doc.rect(0,0,PW,PH,'F');
-  // Blue accent line
-  doc.setFillColor(79,142,247); doc.rect(0,0,PW,1.2,'F');
 
-  // ── LOGO — use actual PNG logo if loaded, fallback to drawn version ──
-  const logoB64 = window.RYAVIEW_LOGO_B64;
-  if (logoB64) {
-    try {
-      // Logo original: 427x109px, aspect ~3.92. Target height ~12mm
-      const logoH = 12;
-      const logoW = logoH * (427 / 109);
-      doc.addImage(logoB64, 'PNG', 13, 5, logoW, logoH);
-    } catch(e) {
-      // Fallback: draw it manually
-      doc.setFillColor(232,168,32);
-      doc.roundedRect(13, 7, 12, 2.2, 1, 1, 'F');
-      doc.setTextColor(220,232,244); doc.setFontSize(11); doc.setFont('helvetica','bolditalic');
-      doc.text('a', 19, 17, { align:'center' });
-      doc.setFillColor(50,70,100); doc.rect(27.5, 7.5, 0.4, 11, 'F');
-      doc.setTextColor(237,244,252); doc.setFontSize(15); doc.setFont('helvetica','bold');
-      doc.text('ryaview', 30, 16);
-      const rww2 = doc.getTextWidth('ryaview');
-      doc.setFillColor(232,168,32);
-      doc.roundedRect(30+rww2, 8, 12, 1.8, 0.6, 0.6, 'F');
-      doc.setTextColor(232,168,32); doc.setFontSize(15); doc.setFont('helvetica','bold');
-      doc.text('.ai', 30+rww2, 16);
-      doc.setTextColor(107,133,168); doc.setFontSize(6); doc.setFont('helvetica','normal');
-      doc.text('CAMERA INTELLIGENCE  \u00b7  INTERNAL', 30, 20);
-    }
-  } else {
-    // No logo loaded — draw manually
-    doc.setFillColor(232,168,32);
-    doc.roundedRect(13, 7, 12, 2.2, 1, 1, 'F');
-    doc.setTextColor(220,232,244); doc.setFontSize(11); doc.setFont('helvetica','bolditalic');
-    doc.text('a', 19, 17, { align:'center' });
-    doc.setFillColor(50,70,100); doc.rect(27.5, 7.5, 0.4, 11, 'F');
-    doc.setTextColor(237,244,252); doc.setFontSize(15); doc.setFont('helvetica','bold');
-    doc.text('ryaview', 30, 16);
-    const rww2 = doc.getTextWidth('ryaview');
-    doc.setFillColor(232,168,32);
-    doc.roundedRect(30+rww2, 8, 12, 1.8, 0.6, 0.6, 'F');
-    doc.setTextColor(232,168,32); doc.setFontSize(15); doc.setFont('helvetica','bold');
-    doc.text('.ai', 30+rww2, 16);
-    doc.setTextColor(107,133,168); doc.setFontSize(6); doc.setFont('helvetica','normal');
-    doc.text('CAMERA INTELLIGENCE  \u00b7  INTERNAL', 30, 20);
-  }
+  // ── Gold accent line at very top ──
+  doc.setFillColor(232,168,32); doc.rect(0,0,PW,0.8,'F');
 
-  // ── DOCUMENT TYPE BADGE (top right) ──
-  const badgeLabel = isAlt ? 'ALTERNATIVE BOQ' : 'BILL OF QUANTITIES';
-  const badgeColor = isAlt ? [0,200,83] : [79,142,247];
+  // ── HEADER BAR ──
+  doc.setFillColor(17,21,32); doc.rect(0,1,PW,22,'F');
+  doc.setFillColor(31,45,69); doc.rect(0,23,PW,0.3,'F');
+
+  // ── LOGO (drawn cleanly) ──
+  // Gold brushstroke bar
+  doc.setFillColor(232,168,32);
+  doc.roundedRect(ML+1, 5, 16, 2.8, 1.2, 1.2, 'F');
+  // Italic 'a' in white
+  doc.setTextColor(240,245,255); doc.setFontSize(16); doc.setFont('helvetica','bolditalic');
+  doc.text('a', ML+9, 17, { align:'center' });
+  // Thin vertical separator
+  doc.setFillColor(60,80,110); doc.rect(ML+20, 5.5, 0.4, 14, 'F');
+  // 'ryaview' in bright white
+  doc.setTextColor(245,248,255); doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text('ryaview', ML+23, 16.5);
+  const rww = doc.getTextWidth('ryaview');
+  // Gold brushstroke above '.ai'
+  doc.setFillColor(232,168,32);
+  doc.roundedRect(ML+23+rww-1, 5, doc.getTextWidth('.ai')+3, 2.2, 0.8, 0.8, 'F');
+  // '.ai' in gold
+  doc.setTextColor(232,168,32); doc.setFontSize(18); doc.setFont('helvetica','bold');
+  doc.text('.ai', ML+23+rww, 16.5);
+  // Subtitle
+  doc.setTextColor(120,150,190); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('CAMERA INTELLIGENCE  |  INTERNAL', ML+23, 21);
+
+  // ── DOCUMENT TYPE + DATE (top right) ──
+  const badgeLabel = isAlt ? 'ALTERNATIVE BOQ' : (isAudio ? 'AUDIO BOQ' : 'BILL OF QUANTITIES');
+  const badgeColor = isAlt ? [0,180,75] : (isAudio ? [168,85,247] : [79,142,247]);
   doc.setFillColor(...badgeColor);
-  doc.roundedRect(PW-MR-50, 6, 50, 8, 1.5, 1.5, 'F');
-  doc.setTextColor(13,17,23); doc.setFontSize(6.5); doc.setFont('helvetica','bold');
-  doc.text(badgeLabel, PW-MR-25, 11.2, { align:'center' });
+  doc.roundedRect(PW-MR-52, 5, 52, 8, 2, 2, 'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','bold');
+  doc.text(badgeLabel, PW-MR-26, 10.5, { align:'center' });
+  // Date below badge
+  doc.setTextColor(120,150,190); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text(dateStr, PW-MR-26, 18, { align:'center' });
 
   // ── TITLE ──
   let Y = 28;
-  doc.setTextColor(220,232,244); doc.setFontSize(14); doc.setFont('helvetica','bold');
-  doc.text((isAlt ? 'Alternative Bill of Quantities' : 'Bill of Quantities') + ' — ' + brand, ML, Y);
-  Y += 5;
+  doc.setTextColor(230,238,250); doc.setFontSize(13); doc.setFont('helvetica','bold');
+  const titlePrefix = isAudio ? 'Audio ' : '';
+  doc.text((isAlt ? 'Alternative '+titlePrefix+'Bill of Quantities' : titlePrefix+'Bill of Quantities') + '  ---  ' + brand, ML, Y);
+  Y += 3;
   if (isAlt) {
-    doc.setTextColor(107,133,168); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
-    doc.text('Alternative to: ' + boqBrand, ML, Y);
+    doc.setTextColor(120,150,190); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+    doc.text('Alternative to: ' + (isAudio ? audioBoqBrand : boqBrand), ML, Y+2);
     Y += 5;
   }
 
   // ── PROJECT META BOX ──
-  Y += 2;
-  const metaH = 26;
+  Y += 4;
+  const metaH = 20;
   doc.setFillColor(17,21,32);
   doc.roundedRect(ML, Y, CW, metaH, 2, 2, 'F');
-  doc.setDrawColor(31,45,69); doc.setLineWidth(0.3);
+  doc.setDrawColor(40,55,80); doc.setLineWidth(0.3);
   doc.roundedRect(ML, Y, CW, metaH, 2, 2, 'S');
 
+  // 4 columns in meta box
+  const colW = CW / 4;
   // Labels
-  doc.setTextColor(107,133,168); doc.setFontSize(6); doc.setFont('helvetica','normal');
-  doc.text('CLIENT',         ML+5,    Y+6);
-  doc.text('PROJECT / SITE', ML+65,   Y+6);
-  doc.text('PREPARED BY',    ML+122,  Y+6);
-  doc.text('DATE',           ML+122,  Y+17);
-
+  doc.setTextColor(120,150,190); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
+  doc.text('CLIENT',         ML+5,          Y+6);
+  doc.text('PROJECT / SITE', ML+5+colW,     Y+6);
+  doc.text('PREPARED BY',    ML+5+colW*2,   Y+6);
+  doc.text('DATE',           ML+5+colW*3,   Y+6);
+  // Vertical separators
+  doc.setFillColor(40,55,80);
+  doc.rect(ML+colW,   Y+3, 0.3, metaH-6, 'F');
+  doc.rect(ML+colW*2, Y+3, 0.3, metaH-6, 'F');
+  doc.rect(ML+colW*3, Y+3, 0.3, metaH-6, 'F');
   // Values
-  doc.setTextColor(220,232,244); doc.setFontSize(8); doc.setFont('helvetica','bold');
-  doc.text(meta.client || '—', ML+5,   Y+13, { maxWidth:55 });
-  doc.text(meta.site   || '—', ML+65,  Y+13, { maxWidth:52 });
-  doc.text(meta.by     || '—', ML+122, Y+13, { maxWidth:52 });
-  doc.setTextColor(144,174,206); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
-  doc.text(dateStr,             ML+122, Y+22);
+  doc.setTextColor(230,238,250); doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+  doc.text(meta.client || '---', ML+5,         Y+14, { maxWidth:colW-10 });
+  doc.text(meta.site   || '---', ML+5+colW,    Y+14, { maxWidth:colW-10 });
+  doc.text(meta.by     || '---', ML+5+colW*2,  Y+14, { maxWidth:colW-10 });
+  doc.setTextColor(170,195,225); doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text(dateStr,               ML+5+colW*3,  Y+14);
 
-  Y += metaH + 6;
+  Y += metaH + 5;
 
   // ── ITEMS TABLE ──
   const ep = r => r.customPrice != null ? r.customPrice : r.price;
   const filled = rows.filter(r => ep(r) > 0);
   const grandTotal = filled.reduce((s,r) => s + ep(r)*r.qty, 0);
 
+  const col3Header = isAudio ? 'SPL (dB)' : 'Resolution';
+
   const tableRows = filled.map((r,i) => [
     String(i+1).padStart(2,'0'),
     r.model,
     r.type,
-    r.res,
+    r.res || '---',
     pdfInr(ep(r)),
     String(r.qty),
     pdfInr(ep(r)*r.qty)
@@ -2930,62 +2927,68 @@ function boqPDFDoc(brand, rows, meta, isAlt) {
   // Grand total row
   tableRows.push([
     '', '', '', '',
-    { content:'GRAND TOTAL', styles:{ fontStyle:'bold', textColor:[107,133,168], halign:'right', fontSize:8 } },
+    { content:'GRAND TOTAL', styles:{ fontStyle:'bold', textColor:[120,150,190], halign:'right', fontSize:9 } },
     '',
-    { content:'₹ ' + grandTotal.toLocaleString('en-IN'), styles:{ fontStyle:'bold', textColor:[0,200,83], fontSize:9 } }
+    { content:'Rs. ' + grandTotal.toLocaleString('en-IN'), styles:{ fontStyle:'bold', textColor:[0,200,83], fontSize:10 } }
   ]);
 
   doc.autoTable({
-    head: [['#', 'Model No.', 'Type', 'Resolution', 'Unit Price (INR)', 'Qty', 'Total (INR)']],
+    head: [['#', 'Model No.', 'Type', col3Header, 'Unit Price (INR)', 'Qty', 'Total (INR)']],
     body: tableRows,
     startY: Y,
     margin: { left: ML, right: MR },
     styles: {
-      fontSize: 8, cellPadding: 4, font: 'helvetica',
-      textColor: [168,189,212], fillColor: [22,27,39],
-      lineColor: [31,45,69], lineWidth: 0.25
+      fontSize: 8.5, cellPadding: 4.5, font: 'helvetica',
+      textColor: [180,200,225], fillColor: [22,27,39],
+      lineColor: [35,50,75], lineWidth: 0.2
     },
     headStyles: {
-      fillColor: [17,21,32], textColor: [220,232,244],
+      fillColor: [25,35,55], textColor: [230,238,250],
       fontSize: 8, fontStyle: 'bold', cellPadding: 5
     },
-    alternateRowStyles: { fillColor: [23,29,46] },
+    alternateRowStyles: { fillColor: [18,23,35] },
     columnStyles: {
-      0: { cellWidth: 12, halign: 'center', textColor: [107,133,168] },
-      1: { cellWidth: 42, fontStyle: 'bold', textColor: [205,220,240] },
-      2: { cellWidth: 28 },
-      3: { cellWidth: 22, halign: 'center' },
-      4: { cellWidth: 32, halign: 'right' },
-      5: { cellWidth: 12, halign: 'center' },
-      6: { cellWidth: 32, halign: 'right', fontStyle: 'bold', textColor: [0,200,83] }
+      0: { cellWidth: 14, halign: 'center', textColor: [120,150,190] },
+      1: { cellWidth: 65, fontStyle: 'bold', textColor: [220,232,248] },
+      2: { cellWidth: 40 },
+      3: { cellWidth: 30, halign: 'center' },
+      4: { cellWidth: 40, halign: 'right', textColor: [180,200,225] },
+      5: { cellWidth: 16, halign: 'center' },
+      6: { cellWidth: 45, halign: 'right', fontStyle: 'bold', textColor: [0,200,83] }
     },
     didParseCell: function(d) {
       if (d.section === 'body' && d.row.index === tableRows.length - 1) {
         d.cell.styles.fillColor  = [17,21,32];
         d.cell.styles.fontStyle  = 'bold';
-        d.cell.styles.fontSize   = 8.5;
-        d.cell.styles.minCellHeight = 10;
+        d.cell.styles.fontSize   = 9;
+        d.cell.styles.minCellHeight = 12;
       }
     }
   });
 
   // ── DISCLAIMER BOX ──
-  const fy = doc.lastAutoTable.finalY + 8;
+  const fy = doc.lastAutoTable.finalY + 6;
   doc.setFillColor(20,28,44);
-  doc.roundedRect(ML, fy, CW, 14, 1.5, 1.5, 'F');
+  doc.roundedRect(ML, fy, CW, 12, 1.5, 1.5, 'F');
+  doc.setDrawColor(50,65,90); doc.setLineWidth(0.2);
+  doc.roundedRect(ML, fy, CW, 12, 1.5, 1.5, 'S');
   doc.setTextColor(234,179,8); doc.setFontSize(7); doc.setFont('helvetica','bold');
-  doc.text('⚠  Disclaimer', ML+4, fy+5.5);
-  doc.setTextColor(144,174,206); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-  doc.text('All prices are indicative only — exclusive of GST, customs duties, freight & installation charges.', ML+4, fy+10);
-  doc.text('Please confirm with an authorised Axis distributor before issuing a formal quotation.', ML+4, fy+14);
+  doc.text('DISCLAIMER', ML+5, fy+5);
+  doc.setTextColor(155,180,210); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('All prices are indicative only --- exclusive of customs duties, BCD, SWS, GST, freight & installation.  Verify with authorised distributor before quoting.', ML+38, fy+5);
+  doc.setTextColor(120,150,190); doc.setFontSize(6.5);
+  doc.text('AI recommendations can make mistakes --- verify before quoting.', ML+5, fy+10);
 
   // ── FOOTER ──
-  const footY = PH - 12;
-  doc.setFillColor(31,45,69); doc.rect(ML, footY-3, CW, 0.3, 'F');
-  doc.setTextColor(79,142,247); doc.setFontSize(7); doc.setFont('helvetica','bold');
+  const footY = PH - 8;
+  doc.setFillColor(31,45,69); doc.rect(ML, footY-2, CW, 0.3, 'F');
+  doc.setTextColor(232,168,32); doc.setFontSize(7.5); doc.setFont('helvetica','bold');
   doc.text('ryaview.ai', ML, footY+2);
-  doc.setTextColor(107,133,168); doc.setFont('helvetica','normal');
-  doc.text('  ·  Camera Intelligence Platform  ·  For authorised internal use only  ·  ' + dateStr, ML + doc.getTextWidth('ryaview.ai'), footY+2);
+  doc.setTextColor(120,150,190); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('  |  Camera Intelligence Platform  |  For authorised internal use only  |  ' + dateStr, ML + doc.getTextWidth('ryaview.ai'), footY+2);
+  // Right side: page indicator
+  doc.setTextColor(90,115,150); doc.setFontSize(6.5);
+  doc.text('Page 1', PW-MR, footY+2, { align:'right' });
 
   return { doc, dateStr };
 }
