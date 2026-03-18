@@ -1122,7 +1122,9 @@ window.addEventListener('DOMContentLoaded', () => {
   // Audio loads when tab is first clicked
   setTimeout(fetchForex, 1000);
   // Restore session on refresh if tab-alive flag is set
-  if (sessionStorage.getItem('ryaview_tab_alive')) {
+  // But NOT if this is a confirmation redirect (handled separately above)
+  const isConfirmRedirect = window.location.hash && (window.location.hash.includes('type=signup') || window.location.hash.includes('type=email') || window.location.hash.includes('type=recovery'));
+  if (!isConfirmRedirect && sessionStorage.getItem('ryaview_tab_alive')) {
     _sb.auth.getSession().then(({ data }) => {
       if (data?.session?.user) {
         _currentUser = data.session.user;
@@ -1146,6 +1148,33 @@ const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
 let _sessionTimer = null;
 let _warnTimer    = null;
 let _currentUser  = null;
+
+/* ── DETECT EMAIL CONFIRMATION REDIRECT — force to sign-in page ── */
+(function detectConfirmationRedirect() {
+  const hash = window.location.hash;
+  // Supabase puts type=signup or type=email in the URL hash after confirmation
+  if (hash && (hash.includes('type=signup') || hash.includes('type=email') || hash.includes('type=recovery'))) {
+    // Small delay to let Supabase process the token first
+    setTimeout(async () => {
+      // Sign out the auto-created session
+      await _sb.auth.signOut();
+      // Clear the hash from URL
+      history.replaceState(null, '', window.location.pathname);
+      // Show success message on login form
+      const msg = document.getElementById('lg-msg');
+      if (msg) {
+        if (hash.includes('type=recovery')) {
+          msg.innerHTML = '<div style="color:#3ecf8e;font-size:12px;margin-bottom:8px">✅ Password reset successful. Please sign in with your new password.</div>';
+        } else {
+          msg.innerHTML = '<div style="color:#3ecf8e;font-size:12px;margin-bottom:8px">✅ Email confirmed! Please sign in with your email and password.</div>';
+        }
+      }
+      // Make sure login form is showing
+      document.getElementById('auth-overlay').style.display = 'flex';
+      authTab('login');
+    }, 500);
+  }
+})();
 
 /* ── AUTH TAB SWITCH ── */
 function authTab(t) {
