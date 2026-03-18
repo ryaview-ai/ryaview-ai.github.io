@@ -2120,27 +2120,42 @@ function exportPDF() {
   // Blue accent line top
   bg(79,142,247); doc.rect(0,0,PW,1.2,'F');
 
-  // ── LOGO ──
-  // Gold brushstroke bar (the ā macron mark above the 'a')
-  bg(232,168,32); doc.roundedRect(12, 6.5, 14, 3, 1.5, 1.5, 'F');
-  // Italic bold 'a' — larger so it's actually readable
-  fg(220,232,244); doc.setFontSize(14); doc.setFont('helvetica','bolditalic');
-  doc.text('a', 19, 18.5, { align:'center' });
-  // Vertical divider
-  bg(50,70,100); doc.rect(28.5, 6, 0.4, 15, 'F');
-  // "ryaview" — white bold, larger
-  fg(237,244,252); doc.setFontSize(20); doc.setFont('helvetica','bold');
-  doc.text('ryaview', 31, 18);
-  // Measure for .ai placement
-  const rww = doc.getTextWidth('ryaview');
-  // Gold brushstroke above .ai
-  bg(232,168,32); doc.roundedRect(31+rww, 6.5, doc.getTextWidth('.ai')+2, 2.5, 0.8, 0.8, 'F');
-  // ".ai" in gold
-  fg(232,168,32); doc.setFontSize(20); doc.setFont('helvetica','bold');
-  doc.text('.ai', 31+rww, 18);
-  // Subtitle
-  fg(144,174,206); doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.text('CAMERA INTELLIGENCE  *  INTERNAL', 31, 23);
+  // ── LOGO — use actual PNG if available ──
+  const logoB64 = window.RYAVIEW_LOGO_B64;
+  if (logoB64) {
+    try {
+      const logoH = 14;
+      const logoW = logoH * (427 / 109);
+      doc.addImage(logoB64, 'PNG', 12, 5, logoW, logoH);
+    } catch(e) {
+      // Fallback: draw manually
+      bg(232,168,32); doc.roundedRect(12, 6.5, 14, 3, 1.5, 1.5, 'F');
+      fg(220,232,244); doc.setFontSize(14); doc.setFont('helvetica','bolditalic');
+      doc.text('a', 19, 18.5, { align:'center' });
+      bg(50,70,100); doc.rect(28.5, 6, 0.4, 15, 'F');
+      fg(237,244,252); doc.setFontSize(20); doc.setFont('helvetica','bold');
+      doc.text('ryaview', 31, 18);
+      const rww = doc.getTextWidth('ryaview');
+      bg(232,168,32); doc.roundedRect(31+rww, 6.5, doc.getTextWidth('.ai')+2, 2.5, 0.8, 0.8, 'F');
+      fg(232,168,32); doc.setFontSize(20); doc.setFont('helvetica','bold');
+      doc.text('.ai', 31+rww, 18);
+      fg(144,174,206); doc.setFontSize(7); doc.setFont('helvetica','normal');
+      doc.text('CAMERA INTELLIGENCE  *  INTERNAL', 31, 23);
+    }
+  } else {
+    bg(232,168,32); doc.roundedRect(12, 6.5, 14, 3, 1.5, 1.5, 'F');
+    fg(220,232,244); doc.setFontSize(14); doc.setFont('helvetica','bolditalic');
+    doc.text('a', 19, 18.5, { align:'center' });
+    bg(50,70,100); doc.rect(28.5, 6, 0.4, 15, 'F');
+    fg(237,244,252); doc.setFontSize(20); doc.setFont('helvetica','bold');
+    doc.text('ryaview', 31, 18);
+    const rww = doc.getTextWidth('ryaview');
+    bg(232,168,32); doc.roundedRect(31+rww, 6.5, doc.getTextWidth('.ai')+2, 2.5, 0.8, 0.8, 'F');
+    fg(232,168,32); doc.setFontSize(20); doc.setFont('helvetica','bold');
+    doc.text('.ai', 31+rww, 18);
+    fg(144,174,206); doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.text('CAMERA INTELLIGENCE  *  INTERNAL', 31, 23);
+  }
 
   // Report title right side
   fg(237,244,252); doc.setFontSize(10); doc.setFont('helvetica','bold');
@@ -2810,27 +2825,48 @@ function boqPDFDoc(brand, rows, meta, isAlt) {
   // Blue accent line
   doc.setFillColor(79,142,247); doc.rect(0,0,PW,1.2,'F');
 
-  // ── LOGO — gold brushstroke above italic 'a', no circle (matches webpage) ──
-  doc.setFillColor(232,168,32);
-  doc.roundedRect(13, 7, 12, 2.2, 1, 1, 'F');
-  // italic 'a'
-  doc.setTextColor(220,232,244); doc.setFontSize(11); doc.setFont('helvetica','bolditalic');
-  doc.text('a', 19, 17, { align:'center' });
-  // Vertical divider
-  doc.setFillColor(50,70,100); doc.rect(27.5, 7.5, 0.4, 11, 'F');
-  // ryaview
-  doc.setTextColor(237,244,252); doc.setFontSize(15); doc.setFont('helvetica','bold');
-  doc.text('ryaview', 30, 16);
-  const rww = doc.getTextWidth('ryaview');
-  // Gold brushstroke above .ai
-  doc.setFillColor(232,168,32);
-  doc.roundedRect(30+rww, 8, 12, 1.8, 0.6, 0.6, 'F');
-  // .ai in gold
-  doc.setTextColor(232,168,32); doc.setFontSize(15); doc.setFont('helvetica','bold');
-  doc.text('.ai', 30+rww, 16);
-  // Subtitle
-  doc.setTextColor(107,133,168); doc.setFontSize(6); doc.setFont('helvetica','normal');
-  doc.text('CAMERA INTELLIGENCE  ·  INTERNAL', 30, 20);
+  // ── LOGO — use actual PNG logo if loaded, fallback to drawn version ──
+  const logoB64 = window.RYAVIEW_LOGO_B64;
+  if (logoB64) {
+    try {
+      // Logo original: 427x109px, aspect ~3.92. Target height ~12mm
+      const logoH = 12;
+      const logoW = logoH * (427 / 109);
+      doc.addImage(logoB64, 'PNG', 13, 5, logoW, logoH);
+    } catch(e) {
+      // Fallback: draw it manually
+      doc.setFillColor(232,168,32);
+      doc.roundedRect(13, 7, 12, 2.2, 1, 1, 'F');
+      doc.setTextColor(220,232,244); doc.setFontSize(11); doc.setFont('helvetica','bolditalic');
+      doc.text('a', 19, 17, { align:'center' });
+      doc.setFillColor(50,70,100); doc.rect(27.5, 7.5, 0.4, 11, 'F');
+      doc.setTextColor(237,244,252); doc.setFontSize(15); doc.setFont('helvetica','bold');
+      doc.text('ryaview', 30, 16);
+      const rww2 = doc.getTextWidth('ryaview');
+      doc.setFillColor(232,168,32);
+      doc.roundedRect(30+rww2, 8, 12, 1.8, 0.6, 0.6, 'F');
+      doc.setTextColor(232,168,32); doc.setFontSize(15); doc.setFont('helvetica','bold');
+      doc.text('.ai', 30+rww2, 16);
+      doc.setTextColor(107,133,168); doc.setFontSize(6); doc.setFont('helvetica','normal');
+      doc.text('CAMERA INTELLIGENCE  \u00b7  INTERNAL', 30, 20);
+    }
+  } else {
+    // No logo loaded — draw manually
+    doc.setFillColor(232,168,32);
+    doc.roundedRect(13, 7, 12, 2.2, 1, 1, 'F');
+    doc.setTextColor(220,232,244); doc.setFontSize(11); doc.setFont('helvetica','bolditalic');
+    doc.text('a', 19, 17, { align:'center' });
+    doc.setFillColor(50,70,100); doc.rect(27.5, 7.5, 0.4, 11, 'F');
+    doc.setTextColor(237,244,252); doc.setFontSize(15); doc.setFont('helvetica','bold');
+    doc.text('ryaview', 30, 16);
+    const rww2 = doc.getTextWidth('ryaview');
+    doc.setFillColor(232,168,32);
+    doc.roundedRect(30+rww2, 8, 12, 1.8, 0.6, 0.6, 'F');
+    doc.setTextColor(232,168,32); doc.setFontSize(15); doc.setFont('helvetica','bold');
+    doc.text('.ai', 30+rww2, 16);
+    doc.setTextColor(107,133,168); doc.setFontSize(6); doc.setFont('helvetica','normal');
+    doc.text('CAMERA INTELLIGENCE  \u00b7  INTERNAL', 30, 20);
+  }
 
   // ── DOCUMENT TYPE BADGE (top right) ──
   const badgeLabel = isAlt ? 'ALTERNATIVE BOQ' : 'BILL OF QUANTITIES';
