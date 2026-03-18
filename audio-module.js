@@ -32,9 +32,22 @@ const AUDIO_BRAND_COLORS = {
 const AUDIO_CATEGORIES = [
   'Horn Speaker',
   'Ceiling Speaker',
+  'Cabinet Speaker',
+  'Mini Speaker',
+  'Pendant Speaker',
+  'Sound Projector',
+  'Display Speaker',
+  'Strobe Speaker',
+  'Column Speaker',
+  'Wall Speaker',
+  'Network Amplifier',
   'Amplifier',
-  'Audio Bridge',
-  'Audio Player'
+  'Paging Console',
+  'SIP Horn Speaker',
+  'SIP Ceiling Speaker',
+  'SIP Audio Alerter',
+  'IP Intercom Station',
+  'Public Address System'
 ];
 
 /* ── LOAD AUDIO DB FROM SUPABASE ── */
@@ -199,9 +212,12 @@ function buildAudioRow(idx, brand, rowId, isAlt) {
   const fn    = isAlt ? 'updateAudioAltRow' : 'updateAudioBoqRow';
   const delFn = isAlt ? `deleteAudioAltRow('${rowId}')` : `deleteAudioBoqRow('${rowId}')`;
 
-  // Group options by category
+  // Group options by category — deduplicate by model name
   const grouped = {};
+  const seen = new Set();
   products.forEach(p => {
+    if (seen.has(p.m)) return;  // skip duplicates
+    seen.add(p.m);
     if (!grouped[p.cat]) grouped[p.cat] = [];
     grouped[p.cat].push(p);
   });
@@ -295,11 +311,11 @@ function openAudioAltModal() {
   document.getElementById('audio-alt-step2').style.display  = 'none';
   document.getElementById('audio-alt-tbody').innerHTML      = '';
   document.getElementById('audio-alt-grand-total').textContent = '\u20b9 0';
-  document.getElementById('audio-alt-modal').classList.add('open');
+  document.getElementById('audio-alt-modal').classList.add('on');
 }
 
 function closeAudioAltModal() {
-  document.getElementById('audio-alt-modal').classList.remove('open');
+  document.getElementById('audio-alt-modal').classList.remove('on');
 }
 
 function selectAudioAltBrand(btn, brand) {
@@ -856,7 +872,10 @@ function loadAudioModels(slot) {
   sel.innerHTML = '<option value="">\u2014 select model \u2014</option>';
   if (!brand) return;
   const grouped = {};
+  const seen = new Set();
   (AUDIO_DB[brand]||[]).forEach(p => {
+    if (seen.has(p.m)) return;  // skip duplicates
+    seen.add(p.m);
     if (!grouped[p.cat]) grouped[p.cat] = [];
     grouped[p.cat].push(p);
   });
@@ -874,14 +893,19 @@ function loadAudioModels(slot) {
 }
 
 /* ── INIT AUDIO PAGE ── */
+let _audioPageInited = false;
 async function initAudioPage() {
   const el = document.getElementById('page-audio');
   if (!el) return;
-  el.innerHTML = AUDIO_PAGE_HTML;
+  // Only render HTML the first time — subsequent tab switches preserve BOQ data
+  if (!_audioPageInited) {
+    el.innerHTML = AUDIO_PAGE_HTML;
+    _audioPageInited = true;
+  }
   if (!AUDIO_DB || Object.keys(AUDIO_DB).length === 0) {
     await loadAudioDB();
+    renderAudioBrandStrip();
   }
-  renderAudioBrandStrip();
   switchAudioTab('boq');
 }
 
