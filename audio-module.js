@@ -978,7 +978,7 @@ function exportAudioBoqPDF() {
   const meta = getProjMeta();
   // Convert to boqPDFDoc-compatible format
   const pdfRows = filled.map(r=>({ model:r.model, type:r.cat, res:r.spl?r.spl+'dB':'', price:r.price, qty:r.qty, customPrice:null }));
-  const { doc, dateStr } = boqPDFDoc(audioBoqBrand, pdfRows, meta, false);
+  const { doc, dateStr } = boqPDFDoc(audioBoqBrand, pdfRows, meta, false, true);
   logUsage('audio_boq_export', audioBoqBrand);
   doc.save('ryaview_AudioBOQ_'+audioBoqBrand+'_'+dateStr.replace(/ /g,'_')+'.pdf');
 }
@@ -989,6 +989,6 @@ function exportAudioAltPDF() {
   if (!filled.length) { alert('Add at least one product first.'); return; }
   const meta = getProjMeta();
   const pdfRows = filled.map(r=>({ model:r.model, type:r.cat, res:r.spl?r.spl+'dB':'', price:r.price, qty:r.qty, customPrice:null }));
-  const { doc, dateStr } = boqPDFDoc(audioAltBrand, pdfRows, meta, true);
+  const { doc, dateStr } = boqPDFDoc(audioAltBrand, pdfRows, meta, true, true);
   doc.save('ryaview_AltAudioBOQ_'+audioAltBrand+'_'+dateStr.replace(/ /g,'_')+'.pdf');
 }
