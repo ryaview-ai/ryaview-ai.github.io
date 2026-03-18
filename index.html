@@ -11,12 +11,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:     #0b0e14;
-  --s1:     #131825;
-  --s2:     #1a2235;
-  --s3:     #1e2638;
-  --line:   #243354;
-  --line2:  #263352;
+  --bg:     #080f1e;
+  --s1:     #0d1829;
+  --s2:     #122035;
+  --s3:     #192c46;
+  --line:   #1c3050;
+  --line2:  #233b63;
   --blue:   #4f8ef7;
   --blue2:  #7aadfa;
   --bluebg: rgba(79,142,247,0.07);
@@ -28,6 +28,8 @@
   --head:   #edf4fc;
   --f:     'Manrope', sans-serif;
   --fm:    'Fira Code', monospace;
+  --hi:     #edf4fc;
+  --silver: #90aece;
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0 }
 html { scroll-behavior: smooth }
@@ -294,6 +296,7 @@ tbody tr:hover td { background: rgba(79,142,247,0.025) }
 }
 @keyframes pulse-warn { from{opacity:.8} to{opacity:1} }
 </style>
+  <script src="https://cdn.jsdelivr.net/npm/docx@9.5.3/build/index.min.js"></script>
 </head>
 <body>
 <!-- DB loading overlay (shown while fetching cameras from Supabase) -->
@@ -465,6 +468,9 @@ tbody tr:hover td { background: rgba(79,142,247,0.025) }
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
     Camera Comparison <span class="nc">5 slots</span>
   </div>
+  <div class="nt" id="nt-audio" onclick="sw('audio',this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Audio</div>
+  <div class="nt" id="nt-tco" onclick="sw('tco',this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> TCO</div>
+  <div class="nt" id="nt-tender" onclick="sw('tender',this)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Tender</div>
   <div class="nt" id="nt-admin" onclick="sw('admin',this)">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     Admin <span class="nc">admin</span>
@@ -766,6 +772,10 @@ tbody tr:hover td { background: rgba(79,142,247,0.025) }
     <div id="matrix-inner" class="matrix" style="min-width:900px"></div>
   </div>
 </div>
+
+<div id="page-audio" class="page"></div>
+<div id="page-tco" class="page"></div>
+<div id="page-tender" class="page"></div>
 
 <!-- ══ ADMIN ══ -->
 <div id="page-admin" class="page">
@@ -1107,6 +1117,11 @@ async function fetchForex() {
 
 // Fetch on page load after auth
 window.addEventListener('DOMContentLoaded', () => {
+  window.RYAVIEW_LOGO_B64=null;
+  (async()=>{try{const r=await fetch('https://ryaview-ai.github.io/ryaview-logo.png');if(r.ok){const b=await r.blob();window.RYAVIEW_LOGO_B64=await new Promise(res=>{const rd=new FileReader();rd.onloadend=()=>res(rd.result);rd.readAsDataURL(b);});}}catch(e){}})();
+  if(typeof initAudioPage==='function')initAudioPage();
+  if(typeof renderTCOPage==='function')renderTCOPage();
+  if(typeof initTenderPage==='function')initTenderPage();
   setTimeout(fetchForex, 1000);
   // Restore session on refresh if tab-alive flag is set
   if (sessionStorage.getItem('ryaview_tab_alive')) {
