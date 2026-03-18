@@ -632,7 +632,7 @@ async function exportTenderCompliance() {
           new Paragraph({spacing:{before:40,after:0},children:[txt('Auto-generated - For internal review before submission',{size:22,color:BLUE,italics:true})]}),
           hdiv(),
           new Table({width:{size:9026,type:WidthType.DXA},columnWidths:[2256,2257,2256,2257],rows:
-            [[['Client',clientName],['Project',projectName]],[['Brand Proposed',tenderBoqBrand],['Date',dateStr]]].map(row=>new TableRow({children:row.map(([l,v])=>new TableCell({borders:noBorders,width:{size:2256,type:WidthType.DXA},shading:{fill:GRAY_L,type:ShadingType.CLEAR},margins:{top:100,bottom:100,left:140,right:140},children:[par(txt(l,{size:17,color:'888888'})),par(txt(v,{bold:true,size:22,color:NAVY}))]}))}))})),
+            [[['Client',clientName],['Project',projectName]],[['Brand Proposed',tenderBoqBrand],['Date',dateStr]]].map(row=>new TableRow({children:row.map(([l,v])=>new TableCell({borders:noBorders,width:{size:2256,type:WidthType.DXA},shading:{fill:GRAY_L,type:ShadingType.CLEAR},margins:{top:100,bottom:100,left:140,right:140},children:[par(txt(l,{size:17,color:'888888'})),par(txt(v,{bold:true,size:22,color:NAVY}))]}))}))}),
           new Paragraph({spacing:{before:200}}),
           new Paragraph({spacing:{before:120,after:80},children:[txt('1. Compliance Matrix',{bold:true,size:28,color:NAVY})]}),
           par(txt('Requirements extracted from the uploaded tender. Verified against the '+tenderBoqBrand+' catalogue.',{size:21,color:'444444'})),
