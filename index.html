@@ -3432,10 +3432,15 @@ async function refreshCameraDB() {
 ═══════════════════════════════════════════════════════ */
 const BRANDS_LIST = ['Axis','Hikvision','Hanwha','Bosch','CP Plus','Honeywell','i-PRO','Pelco','Matrix','Sparsh'];
 
-function renderAiBrandGrid() {
+async function renderAiBrandGrid() {
   const grid = document.getElementById('ai-brand-grid');
   if (!grid) return;
   const rows = window._cameraRows || [];
+
+  // Ensure audio DB is loaded
+  if (!AUDIO_DB || Object.keys(AUDIO_DB).length === 0) {
+    if (typeof loadAudioDB === 'function') await loadAudioDB();
+  }
   const audioRows = window._audioRows || [];
   const audioBrands = Object.keys(AUDIO_DB || {});
 
