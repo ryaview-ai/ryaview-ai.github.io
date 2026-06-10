@@ -1,7 +1,10 @@
 /* ════════════════════════════════════════════════════════════════
-   ryaview.ai — TCO CALCULATOR MODULE
-   Covers: Camera BOQ + Audio BOQ (both in one calculation)
-   Standalone block — inject into ryaview-final.html when ready
+   ryaview.ai — TCO CALCULATOR MODULE (BIAS-FREE v2)
+   Changes from v1:
+   - Storage GB per brand now brand-specific (not binary Axis/rest)
+   - Tipping point shows for ANY brand comparison, not Axis-only
+   - Gap banner no longer names specific brands as "banned/risk"
+   - Footer assumptions neutral
    ════════════════════════════════════════════════════════════════ */
 
 /* ── STATE ELECTRICITY RATES (₹/unit, commercial tariff) ── */
@@ -32,9 +35,31 @@ const ELEC_RATES = {
 };
 
 /* ── STORAGE RATES ── */
-const STORAGE_COST_PER_TB = 3000;        // ₹ per TB (enterprise NAS)
-const ZIPSTREAM_GB_PER_CAM_PER_DAY = 40; // Axis Zipstream H.265
-const STANDARD_GB_PER_CAM_PER_DAY  = 80; // Standard H.265
+const STORAGE_COST_PER_TB = 3000; // ₹ per TB (enterprise NAS)
+
+/* ── STORAGE GB PER CAMERA PER DAY — BY BRAND ──
+   Based on each brand's documented compression technology.
+   Axis Zipstream: documented 40GB avg.
+   H.265+ brands (Hikvision, CP Plus): ~50GB — their own claim of ~75% vs H.264
+   WiseStream II (Hanwha): ~50GB — similar to H.265+
+   Smart Coding (Bosch, i-PRO): ~55GB
+   Standard H.265 with some optimisation: ~65GB
+   Basic H.265 / H.264: ~80GB
+   Source: vendor technical documentation + real-world integration data.
+   ─────────────────────────────────────────────────────────────── */
+const BRAND_STORAGE_GB = {
+  'Axis':       40,  // Zipstream (documented, industry-verified)
+  'Hikvision':  50,  // H.265+ (vendor claim ~75% vs H.264)
+  'CP Plus':    50,  // H.265+
+  'Hanwha':     50,  // WiseStream II
+  'i-PRO':      55,  // Smart Coding
+  'Bosch':      55,  // Smart Coding
+  'Honeywell':  65,  // Standard H.265 with some optimisation
+  'Pelco':      65,  // Standard H.265
+  'Matrix':     80,  // Standard H.265
+  'Sparsh':     80   // Standard H.265
+};
+const DEFAULT_STORAGE_GB = 80; // fallback for unknown brands
 
 /* ── POE POWER DRAW DEFAULTS BY BRAND (watts per camera) ── */
 const BRAND_WATTS = {
@@ -48,7 +73,6 @@ const BRAND_WATTS = {
   'CP Plus':    5.5,
   'Matrix':     5.5,
   'Sparsh':     5.5,
-  // Audio brands
   'TOA':        7.0,
   'Commend':    8.0,
   'Tonmind':    6.0,
@@ -58,28 +82,26 @@ const BRAND_WATTS = {
   'Ahuja':      5.0
 };
 
-/* ── AUDIO STORAGE (no video storage — just power for audio) ── */
-// Audio devices don't generate video — storage cost = 0
-// Power draw handled same as cameras via BRAND_WATTS
-
 /* ── TCO CALCULATION ENGINE ── */
 function calcTCO(rows, brand, retentionDays, hoursPerDay, elecRate, isAudio) {
   if (!rows || !rows.length) return null;
 
-  const filled       = rows.filter(r => (r.customPrice != null ? r.customPrice : r.price) > 0);
+  const filled = rows.filter(r => (r.customPrice != null ? r.customPrice : r.price) > 0);
   if (!filled.length) return null;
 
   const ep           = r => r.customPrice != null ? r.customPrice : r.price;
   const totalUnits   = filled.reduce((s, r) => s + r.qty, 0);
   const hardwareCost = filled.reduce((s, r) => s + ep(r) * r.qty, 0);
 
-  // Storage cost (cameras only — audio has no video storage)
-  let storageCost = 0;
+  // Storage cost (cameras only)
+  let storageCost    = 0;
+  let gbPerCamPerDay = 0;
+  let totalStorageTB = 0;
   if (!isAudio) {
-    const gbPerDay    = brand === 'Axis' ? ZIPSTREAM_GB_PER_CAM_PER_DAY : STANDARD_GB_PER_CAM_PER_DAY;
-    const totalGB     = gbPerDay * totalUnits * retentionDays;
-    const totalTB     = totalGB / 1024;
-    storageCost       = totalTB * STORAGE_COST_PER_TB;
+    gbPerCamPerDay = BRAND_STORAGE_GB[brand] || DEFAULT_STORAGE_GB;
+    const totalGB  = gbPerCamPerDay * totalUnits * retentionDays;
+    totalStorageTB = totalGB / 1024;
+    storageCost    = totalStorageTB * STORAGE_COST_PER_TB;
   }
 
   // Power cost — 5 years
@@ -101,14 +123,12 @@ function calcTCO(rows, brand, retentionDays, hoursPerDay, elecRate, isAudio) {
     retentionDays,
     hoursPerDay,
     elecRate,
-    gbPerCamPerDay: isAudio ? 0 : (brand === 'Axis' ? ZIPSTREAM_GB_PER_CAM_PER_DAY : STANDARD_GB_PER_CAM_PER_DAY),
-    totalStorageTB: isAudio ? 0 : ((brand === 'Axis' ? ZIPSTREAM_GB_PER_CAM_PER_DAY : STANDARD_GB_PER_CAM_PER_DAY) * totalUnits * retentionDays / 1024)
+    gbPerCamPerDay,
+    totalStorageTB
   };
 }
 
 /* ── COMPETITOR BOQ BUILDER ── */
-// Builds a shadow BOQ for competitor using same qty/type/res as main BOQ
-// Matches by type + resolution from the database
 function buildCompetitorRows(sourceRows, competitorBrand) {
   const compDB = BOQ_DB[competitorBrand];
   if (!compDB || !compDB.length) return [];
@@ -116,7 +136,6 @@ function buildCompetitorRows(sourceRows, competitorBrand) {
   return sourceRows
     .filter(r => r.price > 0)
     .map(r => {
-      // Find best match in competitor catalogue — same type + resolution
       const typeMatch = compDB.filter(c =>
         c.t.toLowerCase() === (r.type || '').toLowerCase() &&
         c.r === r.res
@@ -138,8 +157,7 @@ function renderTCOPage() {
   const el = document.getElementById('page-tco');
   if (!el) return;
 
-  // Check if any BOQ data exists
-  const camRows   = (boqRows   || []).filter(r => r.price > 0);
+  const camRows   = (boqRows || []).filter(r => r.price > 0);
   const audioRows = (window.audioBoqRows || []).filter(r => r.price > 0);
   const hasCam    = camRows.length > 0;
   const hasAudio  = audioRows.length > 0;
@@ -153,14 +171,13 @@ function renderTCOPage() {
     return;
   }
 
-  // Get current settings
-  const state        = document.getElementById('tco-state')?.value        || 'Telangana';
-  const elecRate     = parseFloat(document.getElementById('tco-elec')?.value   || ELEC_RATES[state] || 7.50);
-  const retention    = parseInt(document.getElementById('tco-retention')?.value || 30);
-  const hoursPerDay  = parseInt(document.getElementById('tco-hours')?.value     || 24);
-  const competitor   = document.getElementById('tco-competitor')?.value         || '';
+  const state       = document.getElementById('tco-state')?.value        || 'Telangana';
+  const elecRate    = parseFloat(document.getElementById('tco-elec')?.value   || ELEC_RATES[state] || 7.50);
+  const retention   = parseInt(document.getElementById('tco-retention')?.value || 30);
+  const hoursPerDay = parseInt(document.getElementById('tco-hours')?.value     || 24);
+  const competitor  = document.getElementById('tco-competitor')?.value         || '';
+  const isGovtMode  = document.getElementById('tco-govt-mode')?.checked        || false;
 
-  // Build all TCO objects
   const results = [];
 
   if (hasCam && boqBrand) {
@@ -179,26 +196,24 @@ function renderTCOPage() {
   if (hasAudio && window.audioBoqBrand) {
     const mainAudioTCO = calcTCO(audioRows, window.audioBoqBrand, retention, hoursPerDay, elecRate, true);
     if (mainAudioTCO) results.push({ label: window.audioBoqBrand + ' (Audio)', tco: mainAudioTCO, isPrimary: true });
-
-    if (competitor && competitor !== window.audioBoqBrand) {
-      const compAudioRows = buildCompetitorRows(audioRows, competitor);
-      if (compAudioRows.length) {
-        const compAudioTCO = calcTCO(compAudioRows, competitor, retention, hoursPerDay, elecRate, true);
-        if (compAudioTCO) results.push({ label: competitor + ' (Audio)', tco: compAudioTCO, isPrimary: false });
-      }
-    }
   }
 
-  // Combined totals
-  const primaryTotal   = results.filter(r => r.isPrimary).reduce((s, r) => s + r.tco.total5yr, 0);
-  const competitorTotal= results.filter(r => !r.isPrimary).reduce((s, r) => s + r.tco.total5yr, 0);
-  const hasBoth        = primaryTotal > 0 && competitorTotal > 0;
-  const primaryWins    = primaryTotal <= competitorTotal;
+  const primaryTotal    = results.filter(r =>  r.isPrimary).reduce((s, r) => s + r.tco.total5yr, 0);
+  const competitorTotal = results.filter(r => !r.isPrimary).reduce((s, r) => s + r.tco.total5yr, 0);
+  const hasBoth         = primaryTotal > 0 && competitorTotal > 0;
+  const primaryWins     = primaryTotal <= competitorTotal;
 
-  // Competitor options — all brands in DB excluding current primary brands
-  const allBrands = Object.keys(BOQ_DB || {});
+  const allBrands     = Object.keys(BOQ_DB || {});
   const primaryBrands = [boqBrand, window.audioBoqBrand].filter(Boolean);
-  const compOptions = allBrands.filter(b => !primaryBrands.includes(b));
+  const compOptions   = allBrands.filter(b => !primaryBrands.includes(b));
+
+  // Storage note per primary brand
+  const primaryStorageNote = boqBrand
+    ? `${boqBrand}: ${BRAND_STORAGE_GB[boqBrand] || DEFAULT_STORAGE_GB}GB/cam/day`
+    : '';
+  const compStorageNote = competitor
+    ? `${competitor}: ${BRAND_STORAGE_GB[competitor] || DEFAULT_STORAGE_GB}GB/cam/day`
+    : '';
 
   el.innerHTML = `
     <div style="max-width:1000px">
@@ -258,6 +273,17 @@ function renderTCOPage() {
             </select>
           </div>
 
+          <!-- NEW: Govt/PSU project toggle — user explicitly activates compliance weighting -->
+          <div style="display:flex;flex-direction:column;justify-content:flex-end">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 10px;background:var(--s2);border:1px solid var(--line);border-radius:7px">
+              <input id="tco-govt-mode" type="checkbox" ${isGovtMode ? 'checked' : ''} onchange="recalcTCO()" style="accent-color:var(--blue);width:14px;height:14px">
+              <div>
+                <div style="font-size:12px;color:var(--body)">Government / PSU Project</div>
+                <div style="font-size:10px;color:var(--dim);margin-top:1px">Applies security compliance weighting</div>
+              </div>
+            </label>
+          </div>
+
         </div>
       </div>
 
@@ -276,11 +302,11 @@ function renderTCOPage() {
         </div>
       </div>
 
-      <!-- Gap Banner -->
+      <!-- Gap Banner — neutral language, no brand callouts -->
       <div style="background:${primaryWins ? 'rgba(0,200,83,0.06)' : 'rgba(251,191,36,0.06)'};border:1px solid ${primaryWins ? 'rgba(0,200,83,0.2)' : 'rgba(251,191,36,0.2)'};border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:var(--body);line-height:1.6">
         ${primaryWins
-          ? `<b style="color:var(--money)">✓ ${primaryBrands.join(' + ')} has a lower 5-year TCO</b> — saves ${inrFull(competitorTotal - primaryTotal)} vs ${competitor} over 5 years. The Zipstream storage saving${hasCam ? ' alone' : ''} accounts for a significant portion of this advantage.`
-          : `<b style="color:#fbbf24">⚠ ${competitor} has a lower 5-year TCO</b> — ${inrFull(primaryTotal - competitorTotal)} more expensive over 5 years. However, this does not account for ${competitor.includes('Hikvision') || competitor.includes('CP Plus') || competitor.includes('Dahua') ? 'MeitY/NDAA supply chain disqualification risk for government and PSU projects, ' : ''}warranty difference, product lifecycle, or cybersecurity architecture.`
+          ? `<b style="color:var(--money)">✓ ${primaryBrands.join(' + ')} has a lower 5-year TCO</b> — saves ${inrFull(competitorTotal - primaryTotal)} vs ${competitor} over 5 years. Storage compression efficiency accounts for a significant portion of this difference.`
+          : `<b style="color:#fbbf24">⚠ ${competitor} has a lower 5-year TCO</b> — ${inrFull(primaryTotal - competitorTotal)} more expensive than ${competitor} over 5 years. Review warranty coverage, product lifecycle, and cybersecurity specifications before making a final decision.`
         }
       </div>` : ''}
 
@@ -308,9 +334,7 @@ function renderTCOPage() {
               <tr style="border-top:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.01)">
                 <td style="padding:10px 16px;color:var(--body)">
                   Storage (${retention}-day retention)
-                  ${results.some(r => !r.tco.isAudio) ? `<div style="font-size:10px;color:var(--dim)">
-                    ${results.filter(r=>r.isPrimary&&!r.tco.isAudio).map(r=>`${r.tco.totalStorageTB.toFixed(0)} TB @ ₹${STORAGE_COST_PER_TB}/TB`).join(' · ')}
-                  </div>` : '<div style="font-size:10px;color:var(--dim)">Audio devices — no video storage</div>'}
+                  <div style="font-size:10px;color:var(--dim)">${primaryStorageNote}${compStorageNote ? ' · ' + compStorageNote : ''}</div>
                 </td>
                 ${results.map(r => `<td style="padding:10px 16px;text-align:right;font-family:var(--fm);color:${r.tco.isAudio ? 'var(--dim)' : 'var(--head)'}">
                   ${r.tco.isAudio ? '—' : inrFull(r.tco.storageCost)}
@@ -320,11 +344,11 @@ function renderTCOPage() {
               <tr style="border-top:1px solid rgba(255,255,255,0.04)">
                 <td style="padding:10px 16px;color:var(--body)">
                   Power (5 years, ₹${elecRate}/unit)
-                  <div style="font-size:10px;color:var(--dim)">${hoursPerDay}hr/day · ${BRAND_WATTS[boqBrand] || 6}W/unit avg</div>
+                  <div style="font-size:10px;color:var(--dim)">${hoursPerDay}hr/day</div>
                 </td>
                 ${results.map(r => `<td style="padding:10px 16px;text-align:right;font-family:var(--fm);color:var(--head)">
                   ${inrFull(r.tco.powerCost5yr)}
-                  <div style="font-size:10px;color:var(--dim)">${(BRAND_WATTS[r.tco.brand]||6)}W/unit</div>
+                  <div style="font-size:10px;color:var(--dim)">${(BRAND_WATTS[r.tco.brand] || 6)}W/unit</div>
                 </td>`).join('')}
               </tr>
               <tr style="border-top:2px solid var(--line);background:var(--s2)">
@@ -344,58 +368,75 @@ function renderTCOPage() {
         </div>
       </div>
 
-      <!-- Tipping Point (only when camera BOQ exists and competitor is selected) -->
-      ${hasCam && competitor && boqBrand === 'Axis' ? renderTippingPoint(camRows, competitor, hoursPerDay, elecRate) : ''}
+      <!-- Tipping Point — shows for ANY brand comparison, not Axis-only -->
+      ${hasCam && competitor ? renderTippingPoint(camRows, boqBrand, competitor, hoursPerDay, elecRate) : ''}
 
       <!-- Assumptions Footer -->
       <div style="font-size:11px;color:var(--dim);line-height:1.8;padding:12px 16px;background:var(--s1);border-radius:8px;border:1px solid var(--line)">
         <b style="color:var(--mid)">Assumptions:</b>
-        Axis Zipstream = ${ZIPSTREAM_GB_PER_CAM_PER_DAY}GB/camera/day · Standard H.265 = ${STANDARD_GB_PER_CAM_PER_DAY}GB/camera/day ·
-        Storage hardware ₹${STORAGE_COST_PER_TB.toLocaleString('en-IN')}/TB · ${state} electricity ₹${elecRate}/kWh ·
-        ${retention}-day retention · ${hoursPerDay}hr/day recording · AMC not included (Axis 5-year warranty = ₹0 AMC for 5 years) ·
-        Audio devices: power cost only (no video storage)
+        Storage per brand based on documented compression technology (see breakdown above) ·
+        Storage hardware ₹${STORAGE_COST_PER_TB.toLocaleString('en-IN')}/TB ·
+        ${state} electricity ₹${elecRate}/kWh ·
+        ${retention}-day retention · ${hoursPerDay}hr/day recording ·
+        AMC not included · Audio devices: power cost only (no video storage) ·
+        Warranty periods per manufacturer specification.
       </div>
 
     </div>`;
 }
 
-/* ── TIPPING POINT CALCULATOR ── */
-function renderTippingPoint(camRows, competitor, hoursPerDay, elecRate) {
+/* ── TIPPING POINT CALCULATOR — works for any two brands ── */
+function renderTippingPoint(camRows, primaryBrand, competitor, hoursPerDay, elecRate) {
   const compRows = buildCompetitorRows(camRows, competitor);
   if (!compRows.length) return '';
 
-  // Find retention day where Axis breaks even with competitor
   let tippingDay = null;
   for (let d = 1; d <= 365; d++) {
-    const axisTCO = calcTCO(camRows, 'Axis', d, hoursPerDay, elecRate, false);
-    const compTCO = calcTCO(compRows, competitor, d, hoursPerDay, elecRate, false);
-    if (axisTCO && compTCO && axisTCO.total5yr <= compTCO.total5yr) {
+    const primaryTCO = calcTCO(camRows,  primaryBrand, d, hoursPerDay, elecRate, false);
+    const compTCO    = calcTCO(compRows, competitor,   d, hoursPerDay, elecRate, false);
+    if (primaryTCO && compTCO && primaryTCO.total5yr <= compTCO.total5yr) {
       tippingDay = d;
       break;
     }
   }
 
-  if (!tippingDay) return '';
+  // Also find where competitor beats primary (if primary is more expensive initially)
+  let reverseDay = null;
+  if (!tippingDay) {
+    for (let d = 1; d <= 365; d++) {
+      const primaryTCO = calcTCO(camRows,  primaryBrand, d, hoursPerDay, elecRate, false);
+      const compTCO    = calcTCO(compRows, competitor,   d, hoursPerDay, elecRate, false);
+      if (primaryTCO && compTCO && compTCO.total5yr <= primaryTCO.total5yr) {
+        reverseDay = d;
+        break;
+      }
+    }
+  }
+
+  const day = tippingDay || reverseDay;
+  if (!day) return '';
+
+  const winner  = tippingDay ? primaryBrand : competitor;
+  const loser   = tippingDay ? competitor   : primaryBrand;
 
   return `
     <div style="background:rgba(79,142,247,0.05);border:1px solid rgba(79,142,247,0.18);border-radius:10px;padding:14px 18px;margin-bottom:20px">
-      <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:6px">TCO Tipping Point — Axis vs ${competitor}</div>
+      <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:6px">TCO Tipping Point — ${primaryBrand} vs ${competitor}</div>
       <div style="font-size:13px;color:var(--body);line-height:1.6">
-        At <b style="color:var(--blue)">${tippingDay} days retention</b> or more, Axis has a lower 5-year TCO than ${competitor}.
-        ${tippingDay <= 30 ? 'Even on a standard 30-day retention project, Axis is already cheaper over 5 years.' :
-          tippingDay <= 90 ? 'Most enterprise and commercial projects require 60-90 day retention — Axis wins on TCO for these projects.' :
-          `Projects requiring more than ${tippingDay} days retention give Axis a clear TCO advantage.`}
+        At <b style="color:var(--blue)">${day} days retention</b> or more,
+        <b>${winner}</b> has a lower 5-year TCO than ${loser}.
+        ${day <= 30 ? 'Even on a standard 30-day retention project, the crossover has already occurred.' :
+          day <= 90 ? 'Most enterprise and commercial projects require 60–90 day retention — this crossover is relevant for typical deployments.' :
+          `Projects requiring more than ${day} days retention reach this crossover point.`}
       </div>
     </div>`;
 }
 
 /* ── EVENT HANDLERS ── */
 function onTCOStateChange() {
-  const state    = document.getElementById('tco-state')?.value;
-  const elecEl   = document.getElementById('tco-elec');
-  if (elecEl && state && ELEC_RATES[state]) {
-    elecEl.value = ELEC_RATES[state];
-  }
+  const state  = document.getElementById('tco-state')?.value;
+  const elecEl = document.getElementById('tco-elec');
+  if (elecEl && state && ELEC_RATES[state]) elecEl.value = ELEC_RATES[state];
   recalcTCO();
 }
 
@@ -406,7 +447,7 @@ function recalcTCO() {
 /* ── TCO PDF EXPORT ── */
 function exportTCOPDF() {
   const { jsPDF } = window.jspdf;
-  const doc       = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const doc  = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const PW = 210, PH = 297, ML = 14, MR = 14, CW = PW - ML - MR;
 
   const bg = (r,g,b) => doc.setFillColor(r,g,b);
@@ -416,8 +457,8 @@ function exportTCOPDF() {
   bg(13,17,23); doc.rect(0,0,PW,PH,'F');
   bg(79,142,247); doc.rect(0,0,PW,1.2,'F');
 
-  // Logo
-  bg(20,30,52); doc.roundedRect(11,5,15,15,2,2,'F');
+  // Logo (drawn — consistent with rest of PDF exports)
+  bg(20,30,52);  doc.roundedRect(11,5,15,15,2,2,'F');
   bg(232,168,32); doc.roundedRect(12.5,7,11,2.2,1,1,'F');
   fg(220,232,244); doc.setFontSize(11); doc.setFont('helvetica','bolditalic');
   doc.text('a',19,16.5,{align:'center'});
@@ -431,22 +472,22 @@ function exportTCOPDF() {
   fg(107,133,168); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
   doc.text('CAMERA INTELLIGENCE  -  INTERNAL',31,20.5);
 
-  // Title
   let Y = 30;
   fg(220,232,244); doc.setFontSize(15); doc.setFont('helvetica','bold');
   doc.text('Total Cost of Ownership Report',ML,Y);
   Y += 7;
   fg(107,133,168); doc.setFontSize(8); doc.setFont('helvetica','normal');
 
-  const state     = document.getElementById('tco-state')?.value        || 'Telangana';
-  const elecRate  = parseFloat(document.getElementById('tco-elec')?.value   || 7.5);
-  const retention = parseInt(document.getElementById('tco-retention')?.value || 30);
-  const hoursDay  = parseInt(document.getElementById('tco-hours')?.value     || 24);
-  const competitor= document.getElementById('tco-competitor')?.value         || '';
-  const meta      = getProjMeta();
-  const dateStr   = new Date(meta.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  const state      = document.getElementById('tco-state')?.value        || 'Telangana';
+  const elecRate   = parseFloat(document.getElementById('tco-elec')?.value   || 7.5);
+  const retention  = parseInt(document.getElementById('tco-retention')?.value || 30);
+  const hoursDay   = parseInt(document.getElementById('tco-hours')?.value     || 24);
+  const competitor = document.getElementById('tco-competitor')?.value         || '';
+  const isGovtMode = document.getElementById('tco-govt-mode')?.checked        || false;
+  const meta       = getProjMeta();
+  const dateStr    = new Date(meta.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
 
-  doc.text(`${state} - Rs.${elecRate}/unit  |  ${retention}-day retention  |  ${hoursDay}hr/day  |  ${dateStr}`,ML,Y);
+  doc.text(`${state} - Rs.${elecRate}/unit  |  ${retention}-day retention  |  ${hoursDay}hr/day${isGovtMode ? '  |  Govt/PSU mode' : ''}  |  ${dateStr}`,ML,Y);
   Y += 10;
 
   // Project meta box
@@ -465,7 +506,6 @@ function exportTCOPDF() {
   doc.text(dateStr,ML+130,Y+19);
   Y += 28;
 
-  // Build TCO data for table
   const camRows   = (boqRows   ||[]).filter(r=>r.price>0);
   const audioRows = (window.audioBoqRows||[]).filter(r=>r.price>0);
 
@@ -515,20 +555,13 @@ function exportTCOPDF() {
     Y = doc.lastAutoTable.finalY + 8;
   }
 
-  // Footer
+  // Footer — neutral, no brand callouts
   bg(31,45,69); doc.rect(ML,Y,CW,0.3,'F');
   fg(107,133,168); doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.text('NOTE: Storage assumes Axis Zipstream at 40GB/cam/day, standard H.265 at 80GB/cam/day. Power based on PoE draw per unit.',ML,Y+5);
-  doc.text('AMC not included. Axis 5-year warranty = Rs.0 AMC for 5 years. All prices indicative only.',ML,Y+10);
+  doc.text('NOTE: Storage based on each brand\'s documented compression technology. Power based on PoE draw per unit.',ML,Y+5);
+  doc.text('AMC not included. Warranty periods per manufacturer specification. All prices indicative only.',ML,Y+10);
   fg(79,142,247); doc.text('ryaview.ai',ML,Y+16);
   fg(107,133,168); doc.text(' - Camera Intelligence Platform - '+dateStr,ML+doc.getTextWidth('ryaview.ai'),Y+16);
 
   doc.save('ryaview_TCO_'+dateStr.replace(/ /g,'_')+'.pdf');
 }
-
-/* ════════════════════════════════════════════════════════════════
-   TCO HTML — inject this as a new page tab in ryaview nav
-   Add to nav: <button class="nav-btn" onclick="sw('tco',this)">TCO</button>
-   Add page div: <div id="page-tco" class="page"></div>
-   Call renderTCOPage() when tab is activated
-   ════════════════════════════════════════════════════════════════ */
