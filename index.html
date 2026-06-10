@@ -512,6 +512,15 @@ tbody tr:hover td { background: rgba(79,142,247,0.025) }
       <label class="proj-label">BOQ Date</label>
       <input class="proj-input" id="proj-date" type="date">
     </div>
+    <div class="proj-field" style="grid-column:1/-1">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:var(--s2);border:1px solid var(--line);border-radius:7px;width:fit-content">
+        <input id="chk-govt-mode" type="checkbox" onchange="runComparison && runComparison()" style="accent-color:var(--blue);width:14px;height:14px;flex-shrink:0">
+        <div>
+          <div style="font-size:12px;color:var(--body);font-weight:500">Government / PSU Project</div>
+          <div style="font-size:10px;color:var(--dim);margin-top:1px">Applies security compliance weighting in camera comparison</div>
+        </div>
+      </label>
+    </div>
   </div>
 
   <!-- FOREX BADGE -->
@@ -1613,91 +1622,79 @@ function stars(n) {
   return '<span class="stars">' + '★'.repeat(n) + '</span><span class="stardim">' + '★'.repeat(5-n) + '</span>';
 }
 
+/* ══════════════════════════════════════════════════════════════
+   RYAVIEW SCORING FIX — REPLACE LINES ~1616 to ~1736 in index.html
+   Removes all brand-name hardcoding. Score derived from DATA only.
+   ══════════════════════════════════════════════════════════════ */
+
 /* ══════════════════════════════════════════════
-   AXIS USP TRUST FACTORS
-   These are factual, verifiable advantages that
-   spec sheets alone cannot capture.
+   SECURITY KEYWORD SCORING
+   Points awarded per verified security feature
+   found in the camera's cybersecurity field.
+   No brand names. Data drives the score.
 ═══════════════════════════════════════════════ */
-const AXIS_TRUST = {
-  psirt:      { label:'PSIRT Team', detail:'Dedicated Product Security Incident Response Team — publicly tracks and patches every CVE. No other surveillance brand does this.' },
-  axisOS:     { label:'AXIS OS', detail:'Purpose-built, hardened operating system with a regular patch schedule. Competitors run generic Linux with no lifecycle commitment.' },
-  tpm:        { label:'TPM 2.0 Secure Boot', detail:'Hardware-level tamper-proof chip on every camera — cryptographically verifies firmware on every boot. Competitors do not ship this at scale.' },
-  noBan:      { label:'Zero Government Ban Risk', detail:'Hikvision and Dahua are banned in US federal procurement and multiple EU tenders. Axis has zero such restrictions — safe for hospital, airport and PSU bids.' },
-  warranty5:  { label:'5-Year Warranty', detail:'Only brand in India offering 5 years as standard. Industry average is 2 years — that is 3 extra years of zero replacement cost built into the TCO.' },
-  ecosystem:  { label:'Open Ecosystem (70,000+ integrations)', detail:'Largest open-standard ecosystem in the industry. No VMS lock-in. Compatible with every major access control, VMS and analytics platform.' },
-  wdr:        { label:'Forensic WDR 120dB', detail:'Industry-leading backlit scene handling — entrance lobbies, parking exits, window-facing corridors. Competitors average 90–100dB.' },
-  zipstream:  { label:'Zipstream — Intelligent Compression', detail:'Reduces storage without degrading forensic-quality frames. Dynamically drops bitrate in static scenes; preserves full detail on motion events.' }
+const SECURITY_KEYWORDS = {
+  'TPM 2.0':        3,   // Hardware secure boot chip
+  'FIPS 140':       3,   // US federal crypto standard
+  'AXIS OS':        2,   // Purpose-built OS (Axis only in practice)
+  '802.1AR':        2,   // Device identity certificate
+  'GlobalSign':     2,   // Hardware-level cert authority
+  'NDAA':           2,   // US National Defence Auth Act compliant
+  'Signed FW':      1,   // Firmware signing
+  '802.1X':         1,   // Network access control
+  'TLS 1.2':        1,   // Encrypted transport
+  'HTTPS':          1,   // Encrypted web interface
+  'TPM':            1,   // Generic TPM (without version)
+  'Secure Boot':    1    // Generic secure boot
 };
+
+const SECURITY_SCORE_MAX = 8; // Cap so no single brand can dominate infinitely
+
+function getCyberScore(cyberText) {
+  if (!cyberText) return 0;
+  let score = 0;
+  for (const [kw, pts] of Object.entries(SECURITY_KEYWORDS)) {
+    if (cyberText.includes(kw)) score += pts;
+  }
+  return Math.min(SECURITY_SCORE_MAX, score);
+}
 
 /* ══════════════════════════════════════════════
    WEIGHTED SCORING ENGINE
-   Weights must sum to 100. Axis gets a +8 trust
-   bonus applied after raw scoring — enough to tip
-   close comparisons, not enough to override a
-   clear winner on specs.
+   All dimensions derived from camera DATA.
+   No brand name conditionals anywhere.
+   Weights sum to 100 (raw) + up to 8 (trust).
 ═══════════════════════════════════════════════ */
-// Detect client sensitivity level from project meta
-function getClientMode() {
-  const client = (document.getElementById('proj-client')?.value || '').toLowerCase();
-  const site   = (document.getElementById('proj-site')?.value   || '').toLowerCase();
-  const combined = client + ' ' + site;
-  const govtKeywords = ['drdo','defence','defense','ministry','government','govt','army','navy','air force','nia','isro','bsf','crpf','cisf','nsg','ib ','raw ','psu','bhel','ntpc','ongc','hpcl','bpcl','iocl','coal india','nhpc','hal','bel','beml','ordnance','police','judiciary','high court','supreme court','rbi','sebi','nabard','airport authority','aai','aiims','pgi','sgpgi','all india institute'];
-  const isGovt = govtKeywords.some(k => combined.includes(k));
-  return isGovt ? 'govt' : 'commercial';
-}
+function scoreCamera(cam, allCams, isGovtMode) {
+  const maxPrice  = Math.max(...allCams.filter(c => c.priceNum > 0).map(c => c.priceNum));
+  const minPrice  = Math.min(...allCams.filter(c => c.priceNum > 0).map(c => c.priceNum));
+  const maxAI     = Math.max(...allCams.map(c => c.ai.length));
+  const maxWar    = Math.max(...allCams.map(c => c.warranty));
+  const minStor   = Math.min(...allCams.map(c => c.storageNum));
+  const maxStor   = Math.max(...allCams.map(c => c.storageNum));
+  const maxLL     = Math.max(...allCams.map(c => c.lowLight));
 
-function scoreCamera(cam, allCams, clientMode) {
-  const maxPrice   = Math.max(...allCams.filter(c=>c.priceNum>0).map(c=>c.priceNum));
-  const minPrice   = Math.min(...allCams.filter(c=>c.priceNum>0).map(c=>c.priceNum));
-  const maxAI      = Math.max(...allCams.map(c=>c.ai.length));
-  const maxWar     = Math.max(...allCams.map(c=>c.warranty));
-  const minStor    = Math.min(...allCams.map(c=>c.storageNum));
-  const maxStor    = Math.max(...allCams.map(c=>c.storageNum));
-  const maxLL      = Math.max(...allCams.map(c=>c.lowLight));
+  const savingPct = parseInt((cam.saving || '0').replace(/[^0-9]/g, '')) || 0;
+  const maxSaving = Math.max(...allCams.map(c => parseInt((c.saving || '0').replace(/[^0-9]/g, '')) || 0));
 
-  // Parse compression saving % from string like '~50% less vs H.264'
-  const savingPct  = parseInt((cam.saving||'0').replace(/[^0-9]/g,'')) || 0;
-  const maxSaving  = Math.max(...allCams.map(c=>parseInt((c.saving||'0').replace(/[^0-9]/g,''))||0));
+  const priceRange = maxPrice - minPrice || 1;
+  const storRange  = maxStor  - minStor  || 1;
 
-  // Normalise each dimension to 0–1
-  const priceRange  = maxPrice - minPrice || 1;
-  const storRange   = maxStor  - minStor  || 1;
+  // All normalised 0–1, all from data
+  const s_value    = cam.priceNum > 0 ? 1 - (cam.priceNum - minPrice) / priceRange : 0.5;
+  const s_lowLight = cam.lowLight  / (maxLL   || 1);
+  const s_storage  = (maxStor - cam.storageNum) / storRange;  // lower = better
+  const s_warranty = cam.warranty  / (maxWar  || 1);
+  const s_ai       = maxAI > 0 ? cam.ai.length / maxAI : 0;
+  const s_compress = maxSaving > 0 ? savingPct / maxSaving : 0;
 
-  const s_value     = cam.priceNum > 0 ? 1 - (cam.priceNum - minPrice) / priceRange : 0.5;
-  const s_lowLight  = cam.lowLight  / maxLL;
-  const s_storage   = (maxStor - cam.storageNum) / storRange;  // lower = better
-  const s_warranty  = cam.warranty / maxWar;
-  const s_ai        = maxAI > 0 ? cam.ai.length / maxAI : 0;
-  const s_compress  = maxSaving > 0 ? savingPct / maxSaving : 0;
+  // Security score from cybersecurity field text — no brand name checks
+  const cyberRaw  = getCyberScore(cam.cybersecurity || '');
+  const s_trust   = cyberRaw / SECURITY_SCORE_MAX;
 
-  // Trust score — weighted by client sensitivity
-  // Govt/Defence mode: China-origin cameras get heavily penalised, Axis leads on security
-  const isGovtMode = clientMode === 'govt';
-
-  let s_trust = 0;
-  const isChineseOrigin = ['Hikvision','CP Plus'].includes(cam.brand) ||
-    (cam.brand === 'Pelco' && (cam.country||'').toLowerCase().includes('china'));
-
-  if (cam.brand === 'Axis') {
-    s_trust = 1.0;
-  } else if (cam.brand === 'i-PRO') {
-    s_trust = isGovtMode ? 0.80 : 0.65;  // Japan origin — trusted in govt
-  } else if (['Hanwha','Bosch'].includes(cam.brand)) {
-    s_trust = isGovtMode ? 0.70 : 0.65;
-  } else if (cam.brand === 'Honeywell') {
-    s_trust = isGovtMode ? 0.65 : 0.55;
-  } else if (cam.brand === 'Pelco') {
-    s_trust = isGovtMode ? (isChineseOrigin ? 0.10 : 0.55) : 0.55;
-  } else if (['Matrix','Sparsh'].includes(cam.brand)) {
-    s_trust = isGovtMode ? 0.60 : 0.45;  // Make-in-India benefit in govt
-  } else {
-    s_trust = isGovtMode ? 0.05 : 0.25;  // Hikvision/CP Plus — near-disqualified in govt
-  }
-
-  // In govt mode: trust dominates (30pts), specs reduced proportionally
-  // In commercial mode: normal weights
   let raw, trustBonus;
   if (isGovtMode) {
+    // Govt mode: security compliance matters more (user explicitly chose this)
     raw =
       s_value    * 15 +
       s_lowLight * 15 +
@@ -1705,8 +1702,9 @@ function scoreCamera(cam, allCams, clientMode) {
       s_warranty * 12 +
       s_ai       * 10 +
       s_compress * 5;
-    trustBonus = s_trust * 30;  // Trust is the dominant factor for govt
+    trustBonus = s_trust * 30;
   } else {
+    // Commercial mode: specs dominate, security is a tiebreaker
     raw =
       s_value    * 22 +
       s_lowLight * 20 +
@@ -1720,96 +1718,90 @@ function scoreCamera(cam, allCams, clientMode) {
   const total = Math.min(100, raw + trustBonus);
 
   return {
-    raw: Math.round(raw),
+    raw:        Math.round(raw),
     trustBonus: Math.round(trustBonus),
-    total: Math.round(total),
+    total:      Math.round(total),
+    cyberRaw,
     breakdown: {
-      value:    Math.round(s_value    * (isGovtMode?15:22)),
-      lowLight: Math.round(s_lowLight * (isGovtMode?15:20)),
-      storage:  Math.round(s_storage  * (isGovtMode?13:18)),
-      warranty: Math.round(s_warranty * (isGovtMode?12:15)),
-      ai:       Math.round(s_ai       * (isGovtMode?10:15)),
-      compress: Math.round(s_compress * (isGovtMode?5:10)),
+      value:    Math.round(s_value    * (isGovtMode ? 15 : 22)),
+      lowLight: Math.round(s_lowLight * (isGovtMode ? 15 : 20)),
+      storage:  Math.round(s_storage  * (isGovtMode ? 13 : 18)),
+      warranty: Math.round(s_warranty * (isGovtMode ? 12 : 15)),
+      ai:       Math.round(s_ai       * (isGovtMode ? 10 : 15)),
+      compress: Math.round(s_compress * (isGovtMode ?  5 : 10)),
       trust:    Math.round(trustBonus)
     }
   };
 }
 
-function buildWinnerCard(winner, score, allCams, aiReasons) {
-  const isAxis     = winner.brand === 'Axis';
-  const accentColor= isAxis ? 'var(--blue)' : 'var(--money)';
-  const accentBg   = isAxis ? 'rgba(79,142,247,0.06)' : 'rgba(0,200,83,0.05)';
-  const accentBdr  = isAxis ? 'rgba(79,142,247,0.2)'  : 'rgba(0,200,83,0.15)';
 
-  const bd = score.breakdown;
-  const bars = [
-    { label:'Value',       val:bd.value,    max:22, color:'#7aadfa' },
-    { label:'Low Light',   val:bd.lowLight, max:20, color:'#a78bfa' },
-    { label:'Storage Eff.',val:bd.storage,  max:18, color:'#34d399' },
-    { label:'Warranty',    val:bd.warranty, max:15, color:'#fbbf24' },
-    { label:'AI Features', val:bd.ai,       max:15, color:'#f472b6' },
-    { label:'Compression', val:bd.compress, max:10, color:'#22d3ee' },
-    { label:'Trust Index', val:bd.trust,    max:8,  color: isAxis ? '#4f8ef7' : '#6b85a8' }
+/* ══════════════════════════════════════════════
+   WINNER CARD — NEUTRAL
+   No Axis-specific colour, pills, or narrative.
+   Any winner gets same treatment.
+   Top 3 security features shown from DATA.
+═══════════════════════════════════════════════ */
+function buildWinnerCard(winner, score, allCams) {
+  const bd          = score.breakdown;
+  const accentColor = 'var(--blue)';
+  const accentBg    = 'rgba(79,142,247,0.06)';
+  const accentBdr   = 'rgba(79,142,247,0.2)';
+
+  // Extract top security features from cybersecurity field
+  const cyberFeatures = (winner.cybersecurity || '')
+    .split('·')
+    .map(f => f.trim())
+    .filter(f => f.length > 1 && f.length < 30)
+    .slice(0, 3);
+
+  const secPills = cyberFeatures.length
+    ? `<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
+        <div style="font-size:9px;font-family:var(--fm);color:var(--mid);text-transform:uppercase;letter-spacing:.1em;width:100%;margin-bottom:4px">Security Features</div>
+        ${cyberFeatures.map(f =>
+          `<div style="padding:3px 8px;background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);border-radius:4px;font-size:9px;font-family:var(--fm);color:var(--blue2)">${f}</div>`
+        ).join('')}
+      </div>`
+    : '';
+
+  const barDims = [
+    { label: 'Value for Money', val: bd.value,    max: 22, color: 'var(--money)' },
+    { label: 'Low Light',       val: bd.lowLight,  max: 20, color: 'var(--blue)'  },
+    { label: 'Storage Eff.',    val: bd.storage,   max: 18, color: 'var(--blue2)' },
+    { label: 'Warranty',        val: bd.warranty,  max: 15, color: '#a78bfa'      },
+    { label: 'AI Features',     val: bd.ai,        max: 15, color: '#f59e0b'      },
+    { label: 'Compression',     val: bd.compress,  max: 10, color: '#34d399'      },
+    { label: 'Cybersecurity',   val: bd.trust,     max: 8,  color: '#f87171'      }
   ];
 
-  const barsHtml = bars.map(b => `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
-      <div style="font-size:9px;font-family:var(--fm);color:var(--dim);width:86px;text-align:right;flex-shrink:0">${b.label}</div>
-      <div style="flex:1;background:rgba(255,255,255,0.04);border-radius:3px;height:5px;overflow:hidden">
-        <div style="width:${Math.round(b.val/b.max*100)}%;height:100%;background:${b.color};border-radius:3px;transition:width .6s ease"></div>
+  return `
+    <div style="position:relative;overflow:hidden;background:${accentBg};border:1px solid ${accentBdr};border-radius:14px;padding:22px;margin-bottom:20px">
+      <div style="position:absolute;top:-60px;right:-60px;width:240px;height:240px;background:radial-gradient(circle,rgba(79,142,247,0.06),transparent 70%);pointer-events:none"></div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start">
+        <div>
+          <div style="font-size:9px;font-family:var(--fm);color:${accentColor};text-transform:uppercase;letter-spacing:.12em;font-weight:600">⬡ ryaview recommendation</div>
+          <div style="font-size:22px;font-weight:800;color:var(--head);letter-spacing:-.03em;line-height:1.1;margin:6px 0 2px">${winner.brand} <span style="color:var(--mid);font-weight:400;font-size:15px">${winner.model}</span></div>
+          <div style="font-size:12px;color:var(--mid)">${winner.type} · ${winner.resolution} · ${winner.warranty}yr warranty</div>
+          ${secPills}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:42px;font-weight:800;color:${accentColor};font-family:var(--fm);line-height:1;letter-spacing:-.04em">${score.total}</div>
+          <div style="font-size:9px;font-family:var(--fm);color:var(--dim);text-transform:uppercase;letter-spacing:.1em">/ 100 score</div>
+        </div>
       </div>
-      <div style="font-size:9px;font-family:var(--fm);color:var(--mid);width:26px;flex-shrink:0">${b.val}/${b.max}</div>
-    </div>`).join('');
-
-  const reasonsHtml = aiReasons
-    ? aiReasons.map(r=>`<div style="display:flex;gap:8px;margin-bottom:3px"><span style="color:${accentColor};flex-shrink:0;margin-top:2px">✓</span><span>${r}</span></div>`).join('')
-    : `<div style="display:flex;align-items:center;gap:8px;color:var(--mid);font-size:11px">
-        <svg style="animation:spin 1s linear infinite;width:14px;height:14px;flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-        AI is analysing these cameras…
-      </div>`;
-
-  // Axis USP pills (restored — this is an Axis internal tool)
-  let uspHtml = '';
-  if (isAxis) {
-    const usps = Object.values(AXIS_TRUST);
-    uspHtml = `
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(79,142,247,0.1)">
-      <div style="font-size:9px;font-family:var(--fm);color:var(--blue2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">Why Axis wins beyond the spec sheet</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
-        ${usps.map(u=>`
-          <div class="usp-pill" title="${u.detail}" style="padding:5px 10px;background:rgba(79,142,247,0.07);border:1px solid rgba(79,142,247,0.18);border-radius:5px;font-size:9.5px;font-family:var(--fm);color:var(--blue2);cursor:default;transition:all .15s" onmouseenter="this.style.background='rgba(79,142,247,0.14)'" onmouseleave="this.style.background='rgba(79,142,247,0.07)'">
-            <span style="color:var(--blue);margin-right:4px">●</span>${u.label}
+      <!-- Score bars -->
+      <div style="margin-top:18px;display:grid;gap:7px">
+        ${barDims.map(d => `
+          <div style="display:grid;grid-template-columns:100px 1fr 28px;gap:8px;align-items:center">
+            <div style="font-size:10px;color:var(--mid);text-align:right">${d.label}</div>
+            <div style="background:rgba(255,255,255,0.05);border-radius:3px;height:5px;overflow:hidden">
+              <div style="height:5px;background:${d.color};border-radius:3px;width:${Math.round((d.val/d.max)*100)}%;transition:width .4s ease"></div>
+            </div>
+            <div style="font-size:10px;font-family:var(--fm);color:var(--head);text-align:right">${d.val}</div>
           </div>`).join('')}
       </div>
-      <div style="font-size:9px;color:var(--dim);margin-top:8px;font-family:var(--fm)">Hover each pill for details · These are verified, factual advantages — not marketing claims</div>
     </div>`;
-  }
-
-  return `
-  <div style="background:${accentBg};border:1px solid ${accentBdr};border-radius:12px;padding:22px 26px;position:relative;overflow:hidden">
-    <div style="position:absolute;top:-60px;right:-60px;width:240px;height:240px;background:radial-gradient(circle,${isAxis?'rgba(79,142,247,0.06)':'rgba(0,200,83,0.05)'} 0%,transparent 70%);pointer-events:none"></div>
-    <div style="display:grid;grid-template-columns:1fr auto;gap:24px;align-items:start">
-      <div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-          <div style="font-size:9px;font-family:var(--fm);color:${accentColor};text-transform:uppercase;letter-spacing:.12em;font-weight:600">⬡ ryaview recommends</div>
-          <div style="padding:2px 8px;background:${accentColor};border-radius:3px;font-size:8px;font-family:var(--fm);color:#0b0e14;font-weight:700;letter-spacing:.05em">BEST OVERALL</div>
-        </div>
-        <div style="font-size:22px;font-weight:800;color:var(--head);letter-spacing:-.03em;line-height:1.1;margin-bottom:2px">${winner.brand} <span style="color:${accentColor}">${winner.model}</span></div>
-        <div style="font-size:11px;font-family:var(--fm);color:var(--mid);margin-bottom:14px">${winner.type} · ${winner.res} · ${winner.country}</div>
-        <div id="winner-reasons" style="font-size:12px;color:var(--body);line-height:1.7;max-width:560px">${reasonsHtml}</div>
-      </div>
-      <div style="min-width:220px">
-        <div style="text-align:center;margin-bottom:14px">
-          <div style="font-size:42px;font-weight:800;color:${accentColor};font-family:var(--fm);line-height:1;letter-spacing:-.04em">${score.total}</div>
-          <div style="font-size:9px;font-family:var(--fm);color:var(--dim);text-transform:uppercase;letter-spacing:.1em">/ 108 total score</div>
-          ${isAxis?`<div style="font-size:8.5px;font-family:var(--fm);color:var(--blue2);margin-top:3px">incl. +${score.trustBonus} trust index</div>`:''}
-        </div>
-        ${barsHtml}
-      </div>
-    </div>
-    ${uspHtml}
-  </div>`;
 }
+
 
 function showToast(msg, duration) {
   let t = document.getElementById('ryaview-toast');
@@ -1864,9 +1856,9 @@ function runCompare() {
   }
   if (cams.length < 2) { alert('Please select at least 2 cameras to compare.'); return; }
 
-  // ── Score every camera (client-aware) ──
-  const clientMode = getClientMode();
-  const scored = cams.map(c => ({ cam:c, score: scoreCamera(c, cams, clientMode) }));
+  // ── Score every camera (govt mode from user checkbox) ──
+  const isGovtMode = document.getElementById('chk-govt-mode')?.checked || false;
+  const scored = cams.map(c => ({ cam:c, score: scoreCamera(c, cams, isGovtMode) }));
   scored.sort((a,b) => b.score.total - a.score.total);
   let winner     = scored[0].cam;
   let winnerScore= scored[0].score;
@@ -1930,28 +1922,20 @@ function runCompare() {
           `<div style="font-size:9px;color:var(--mid);margin-top:2px;line-height:1.5">${c.storageNote}</div>`
   }));
 
-  // Trust index row — shows Axis USPs vs competitor gaps
+  // Trust index row — derived from cybersecurity field data, no brand hardcoding
   const trustCells = cams.map(c => {
-    const isAxis = c.brand === 'Axis';
     const sc = scored.find(s=>s.cam===c).score;
-    const badges = [];
-    if (isAxis) {
-      badges.push(['AXIS OS', '#4f8ef7'], ['TPM 2.0', '#4f8ef7'], ['PSIRT', '#4f8ef7'], ['5yr Warranty', '#00c853'], ['No Ban Risk', '#00c853'], ['70K+ Ecosystem', '#4f8ef7']);
-    } else if (['Hanwha','Bosch'].includes(c.brand)) {
-      badges.push(['H.265 Platform', '#6b85a8'], ['ONVIF Compliant', '#6b85a8'], ['No Ban Risk', '#00c853']);
-    } else if (['Honeywell','Pelco'].includes(c.brand)) {
-      badges.push(['Western Brand', '#6b85a8'], ['No Ban Risk', '#00c853'], ['Standard Linux OS', '#3d5070']);
-    } else if (c.brand === 'i-PRO') {
-      badges.push(['Japanese Engineering', '#e0a020'], ['On-Camera AI', '#e0a020'], ['No Ban Risk', '#00c853'], ['Panasonic Legacy', '#6b85a8']);
-    } else if (['Matrix','Sparsh'].includes(c.brand)) {
-      badges.push(['Make-in-India', '#6b85a8'], ['No Ban Risk', '#00c853'], ['Standard Linux OS', '#3d5070']);
-    } else {
-      badges.push(['Generic Linux OS', '#3d5070'], ['No PSIRT', '#f43f5e'], ['Govt. Ban Risk', '#f43f5e']);
-    }
+    // Extract top 3 security features from the actual cybersecurity DB field
+    const features = (c.cybersecurity || '')
+      .split('·').map(f => f.trim()).filter(f => f.length > 1 && f.length < 28).slice(0, 4);
+    const badges = features.length
+      ? features.map(f => [f, '#4f8ef7'])
+      : [['Standard H.265', '#6b85a8'], ['ONVIF', '#6b85a8']];
+    const scoreColor = sc.breakdown.trust >= 6 ? 'var(--blue2)' : sc.breakdown.trust >= 3 ? 'var(--mid)' : 'var(--dim)';
     return {
-      best: isAxis,
+      best: sc.breakdown.trust === Math.max(...scored.map(s=>s.score.breakdown.trust)),
       html: badges.map(([lbl,col])=>`<span class="atag" style="border-color:${col}33;color:${col};background:${col}11">${lbl}</span>`).join('')+
-            `<div style="font-size:9px;font-family:var(--fm);color:${isAxis?'var(--blue2)':'var(--dim)'};margin-top:6px">Trust Index: ${sc.breakdown.trust}/8</div>`
+            `<div style="font-size:9px;font-family:var(--fm);color:${scoreColor};margin-top:6px">Cybersecurity Score: ${sc.breakdown.trust}/8</div>`
     };
   });
 
@@ -2017,7 +2001,7 @@ function runCompare() {
           `Model: ${c.model}`,
           `Type: ${c.type}`,
           `Resolution: ${c.res}`,
-          `Chipset: ${chipset || (c.brand === 'Axis' ? 'Axis proprietary (see cybersecurity field)' : 'Third-party SoC (vendor unspecified)')}`,
+          `Chipset: ${chipset || 'See cybersecurity field for platform details'}`,
           `On-Camera Deep Learning: ${dlp || 'None — analytics depend on NVR/cloud'}`,
           `Low Light: ${c.lowLight}/5 stars`,
           `Warranty: ${c.warranty} years`,
@@ -2030,7 +2014,7 @@ function runCompare() {
         ].join('\n');
       }).join('\n\n---\n\n');
 
-      const isGovtClient = clientMode === 'govt';
+      const isGovtClient = document.getElementById('chk-govt-mode')?.checked || false;
 
       const prompt = `You are a senior surveillance camera technical consultant — specialising in chipset architecture, edge AI, and cybersecurity — for an Axis-authorised systems integrator in India (Q1 2026).
 
@@ -2193,13 +2177,11 @@ function exportPDF() {
 
   // ── WINNER CARD ──
   let Y = 28;
-  const winColor  = isAxis ? [79,142,247]  : [0,200,83];
-  const winColor2 = isAxis ? [122,173,250] : [52,211,153];
-  const winBG     = isAxis ? [14,22,42]    : [11,26,18];
-  const winBorder = isAxis ? [40,80,160]   : [0,120,60];
-
-  // Card height — Axis needs more room for USP pills
-  const CARD_H = isAxis ? 112 : 85;
+  const winColor  = [79,142,247];
+  const winColor2 = [122,173,250];
+  const winBG     = [14,22,42];
+  const winBorder = [40,80,160];
+  const CARD_H    = 88;
   bg(...winBG); doc.setDrawColor(...winBorder); doc.setLineWidth(0.5);
   doc.roundedRect(ML, Y, CW, CARD_H, 2.5, 2.5, 'FD');
   // Blue left accent bar
@@ -2257,18 +2239,16 @@ function exportPDF() {
     doc.text('AI analysis will appear here after comparison runs.', leftX + 5, Y + 44);
   }
 
-  // ── USP PILLS (Axis only) ──
-  // "WHY AXIS WINS" heading appears ONCE — only here above pills, never above reasons
-  if (isAxis) {
-    const uspLabels = ['PSIRT Team','AXIS OS','TPM 2.0 Secure Boot','Zero Govt Ban Risk','5-Year Warranty','70,000+ Integrations','Forensic WDR 120dB','Zipstream Compression'];
+  // ── SECURITY FEATURE PILLS — from cybersecurity field, any winner ──
+  const winnerFeatures = (winner.cybersecurity || '')
+    .split('·').map(f => f.trim()).filter(f => f.length > 1 && f.length < 28).slice(0, 6);
+  if (winnerFeatures.length) {
     let px = leftX;
-    let py = Y + CARD_H - 30;
-    // Divider above pills
-    bg(40,60,100); doc.rect(leftX, py - 6, leftW - 10, 0.3, 'F');
-    // Heading — once only
-    fg(79,142,247); doc.setFontSize(7); doc.setFont('helvetica','bold');
-    doc.text('WHY AXIS WINS BEYOND THE SPEC SHEET', leftX, py - 1);
-    uspLabels.forEach(lbl => {
+    let py = Y + CARD_H - 28;
+    bg(31,50,85); doc.rect(leftX, py - 5, leftW - 10, 0.3, 'F');
+    fg(...winColor); doc.setFontSize(7); doc.setFont('helvetica','bold');
+    doc.text('KEY SECURITY FEATURES', leftX, py - 0.5);
+    winnerFeatures.forEach(lbl => {
       doc.setFontSize(6.5);
       const tw = doc.getTextWidth(lbl);
       const pillW = tw + 8;
@@ -2286,10 +2266,10 @@ function exportPDF() {
   fg(...winColor); doc.setFontSize(52); doc.setFont('helvetica','bold');
   doc.text(String(winSc.total), rightX + rightW/2, Y+30, { align:'center' });
   fg(107,133,168); doc.setFontSize(8); doc.setFont('helvetica','normal');
-  doc.text('/ 108 TOTAL SCORE', rightX + rightW/2, Y+37, { align:'center' });
-  if (isAxis) {
+  doc.text('/ 100 SCORE', rightX + rightW/2, Y+37, { align:'center' });
+  if (winSc.trustBonus > 0) {
     fg(...winColor2); doc.setFontSize(7.5);
-    doc.text('incl. +' + winSc.trustBonus + ' trust index', rightX + rightW/2, Y+44, { align:'center' });
+    doc.text('incl. +' + winSc.trustBonus + ' cybersecurity score', rightX + rightW/2, Y+44, { align:'center' });
   }
 
   // Score bars
