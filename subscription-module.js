@@ -276,6 +276,9 @@ function showUpgradeModal(trigger) {
   } else if (trigger === 'compare') {
     hl.textContent = "Daily comparison limit reached";
     sb.textContent = "Free plan allows 2 comparisons per day. Upgrade for unlimited.";
+  } else if (trigger === 'tender') {
+    hl.textContent = "Tender Compliance — Pro Feature";
+    sb.textContent = "Upload tender PDFs and auto-generate compliance BOQs. Available on Pro and Team plans.";
   } else {
     hl.textContent = "Upgrade ryaview";
     sb.textContent = "Free plan: 2 BOQ exports/day · 2 comparisons/day";
