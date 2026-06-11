@@ -185,6 +185,7 @@ const TENDER_CSS = `
 .cmc.feat{color:var(--mid);font-size:10px;background:rgba(255,255,255,0.02)}
 .cmc.pass{color:var(--money);font-weight:500}
 .cmc.fail{color:#f87171;font-weight:500}
+.cmc.verify{color:#fbba2c;font-weight:500}
 .cmc.hdr{font-size:10px;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:.07em;background:var(--s1);border-bottom:1px solid var(--line)}
 .match-exact{color:var(--money);font-size:10px}
 .match-close{color:#fbbf24;font-size:10px}
@@ -504,29 +505,31 @@ function renderTenderComplianceMatrix() {
   const el=document.getElementById('tender-compliance-matrix');
   if (!el||!tenderParsed) return;
   const minW=tenderParsed.warranty_years_minimum||0;
-  const bW=tenderBoqBrand==='Axis'?5:tenderBoqBrand==='Bosch'?3:tenderBoqBrand==='Hanwha'?3:2;
-  const isCN=['Hikvision','CP Plus','DSPPA','Tonmind','Dahua'].includes(tenderBoqBrand);
-  const scFail=isCN&&(tenderParsed.supply_chain_restrictions||'')!=='None'&&(tenderParsed.supply_chain_restrictions||'')!=='';
   const approved=(tenderParsed.approved_brands||[]).map(b=>b.toLowerCase());
+  const sc=tenderParsed.supply_chain_restrictions||'';
+  const scRestricted=sc&&sc!=='None'&&sc!=='Not specified';
+  const brandApproved=approved.length===0||approved.includes(tenderBoqBrand.toLowerCase());
 
+  // status: 'pass' | 'fail' | 'verify'
   const rows=[
-    {req:'Brand approved in tender',spec:(tenderParsed.approved_brands||[]).join(', ')||'All brands',pass:approved.length===0||approved.includes(tenderBoqBrand.toLowerCase()),detail:tenderBoqBrand+(approved.length===0||approved.includes(tenderBoqBrand.toLowerCase())?' - listed as approved brand':' - NOT in approved list')},
-    {req:'Minimum warranty',spec:minW?minW+' years':'Not specified',pass:!minW||bW>=minW,detail:tenderBoqBrand+' offers '+bW+'-year warranty'},
-    {req:'Supply chain compliance',spec:tenderParsed.supply_chain_restrictions||'Not specified',pass:!scFail,detail:isCN&&scFail?tenderBoqBrand+' - Chinese origin - MeitY/NDAA risk':tenderBoqBrand+' - compliant origin'},
-    ...tenderBoqRows.map(r=>({req:(r.category==='audio'?'Audio: ':'Camera: ')+r.requirement,spec:r.requirement,pass:r.matchQuality!=='Best Available',detail:r.model+' - '+r.matchQuality+' match'}))
+    {req:'Brand approved in tender',spec:(tenderParsed.approved_brands||[]).join(', ')||'All brands',status:brandApproved?'pass':'fail',detail:tenderBoqBrand+(brandApproved?' - listed as approved brand':' - NOT in approved list')},
+    {req:'Minimum warranty',spec:minW?minW+' years':'Not specified',status:minW?'verify':'pass',detail:minW?'Confirm '+tenderBoqBrand+' warranty meets '+minW+'-year minimum with supplier':'No minimum specified'},
+    {req:'Supply chain compliance',spec:sc||'Not specified',status:scRestricted?'verify':'pass',detail:scRestricted?'Tender requires '+sc+' — verify '+tenderBoqBrand+' compliance with supplier':'No supply chain restriction stated'},
+    ...tenderBoqRows.map(r=>({req:(r.category==='audio'?'Audio: ':'Camera: ')+r.requirement,spec:r.requirement,status:'verify',detail:r.model+' - '+r.matchQuality+' match — verify full specs against official datasheet'}))
   ];
 
+  const statusLabel={pass:'Pass',fail:'Fail',verify:'Verify'};
   el.innerHTML=`<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden">
-    <div class="cmrow" style="grid-template-columns:180px 1fr 80px 180px"><div class="cmc hdr" style="border-right:1px solid var(--line)">Requirement</div><div class="cmc hdr" style="border-right:1px solid var(--line)">Tender Spec</div><div class="cmc hdr" style="text-align:center;border-right:1px solid var(--line)">Status</div><div class="cmc hdr">Detail</div></div>
-    ${rows.map((r,i)=>`<div class="cmrow" style="grid-template-columns:180px 1fr 80px 180px;background:${i%2===0?'transparent':'rgba(255,255,255,0.01)'}">
+    <div class="cmrow" style="grid-template-columns:180px 1fr 80px 200px"><div class="cmc hdr" style="border-right:1px solid var(--line)">Requirement</div><div class="cmc hdr" style="border-right:1px solid var(--line)">Tender Spec</div><div class="cmc hdr" style="text-align:center;border-right:1px solid var(--line)">Status</div><div class="cmc hdr">Detail</div></div>
+    ${rows.map((r,i)=>`<div class="cmrow" style="grid-template-columns:180px 1fr 80px 200px;background:${i%2===0?'transparent':'rgba(255,255,255,0.01)'}">
       <div class="cmc feat" style="border-right:1px solid rgba(255,255,255,0.04)">${r.req}</div>
       <div class="cmc" style="font-size:11px;color:var(--mid);border-right:1px solid rgba(255,255,255,0.04)">${r.spec}</div>
-      <div class="cmc ${r.pass?'pass':'fail'}" style="text-align:center;border-right:1px solid rgba(255,255,255,0.04)">${r.pass?'Pass':'Fail'}</div>
+      <div class="cmc ${r.status}" style="text-align:center;border-right:1px solid rgba(255,255,255,0.04)">${statusLabel[r.status]}</div>
       <div class="cmc" style="font-size:10px;color:var(--dim);line-height:1.5">${r.detail}</div>
     </div>`).join('')}
   </div>
   <div style="margin-top:10px;padding:10px 14px;background:var(--s1);border-radius:8px;border:1px solid var(--line);font-size:11px;color:var(--dim);line-height:1.6">
-    Compliance status is based on database information. Verify against official manufacturer datasheets before submission.
+    Pass = confirmed from tender data. Verify = confirm against official datasheets and supplier before submission. Fail = requirement not met.
   </div>`;
 }
 
@@ -583,7 +586,8 @@ async function exportTenderCompliance() {
            LevelFormat,PageBreak,PageNumberElement,Footer,Header,ImageRun} = docx;
 
     const NAVY='1F4E79',BLUE='2E75B6',GREEN='1D6A34',GREEN_L='EAF3DE',
-          WHITE='FFFFFF',GRAY_L='F4F4F4',RED='A32D2D',RED_L='FDECEA';
+          WHITE='FFFFFF',GRAY_L='F4F4F4',RED='A32D2D',RED_L='FDECEA',
+          AMBER='B45309',AMBER_L='FEF9C3';
     const bd={style:BorderStyle.SINGLE,size:1,color:'CCCCCC'};
     const borders={top:bd,bottom:bd,left:bd,right:bd};
     const nb={style:BorderStyle.NONE,size:0,color:'FFFFFF'};
@@ -607,16 +611,17 @@ async function exportTenderCompliance() {
     const projectName=tenderParsed.project_name||getProjMeta().site||'-';
     const dateStr=new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'});
     const minW=tenderParsed.warranty_years_minimum||0;
-    const bW=tenderBoqBrand==='Axis'?5:tenderBoqBrand==='Bosch'?3:2;
-    const isCN=['Hikvision','CP Plus','DSPPA','Tonmind','Dahua'].includes(tenderBoqBrand);
-    const scFail=isCN&&(tenderParsed.supply_chain_restrictions||'')!=='None';
     const approved=(tenderParsed.approved_brands||[]).map(b=>b.toLowerCase());
+    const sc=tenderParsed.supply_chain_restrictions||'';
+    const scRestricted=sc&&sc!=='None'&&sc!=='Not specified';
+    const brandApproved=approved.length===0||approved.includes(tenderBoqBrand.toLowerCase());
 
+    // status: 'pass' | 'fail' | 'verify'
     const compRows=[
-      [(tenderParsed.approved_brands||[]).join(', ')||'All brands',approved.length===0||approved.includes(tenderBoqBrand.toLowerCase()),tenderBoqBrand+(approved.length===0||approved.includes(tenderBoqBrand.toLowerCase())?' - approved brand':' - NOT in approved list'),'Brand approved in tender'],
-      [minW?minW+' years':'Not specified',!minW||bW>=minW,tenderBoqBrand+' offers '+bW+'-year warranty','Minimum warranty'],
-      [tenderParsed.supply_chain_restrictions||'Not specified',!scFail,isCN&&scFail?tenderBoqBrand+' - Chinese origin risk':tenderBoqBrand+' - compliant origin','Supply chain compliance'],
-      ...tenderBoqRows.map(r=>[r.requirement,r.matchQuality!=='Best Available',r.model+' - '+r.matchQuality+' match',(r.category==='audio'?'Audio: ':'Camera: ')+r.type])
+      [(tenderParsed.approved_brands||[]).join(', ')||'All brands',brandApproved?'pass':'fail',tenderBoqBrand+(brandApproved?' - approved brand':' - NOT in approved list'),'Brand approved in tender'],
+      [minW?minW+' years':'Not specified',minW?'verify':'pass',minW?'Confirm '+tenderBoqBrand+' warranty meets '+minW+'-year minimum with supplier':'No minimum specified','Minimum warranty'],
+      [sc||'Not specified',scRestricted?'verify':'pass',scRestricted?'Tender requires '+sc+' — verify '+tenderBoqBrand+' compliance with supplier':'No supply chain restriction stated','Supply chain compliance'],
+      ...tenderBoqRows.map(r=>[r.requirement,'verify',r.model+' - '+r.matchQuality+' match — verify full specs against official datasheet',(r.category==='audio'?'Audio: ':'Camera: ')+r.type])
     ];
 
     const compTable=new Table({
@@ -626,7 +631,7 @@ async function exportTenderCompliance() {
         ...compRows.map((r,ri)=>new TableRow({children:[
           new TableCell({borders,width:{size:2600,type:WidthType.DXA},shading:{fill:ri%2===0?WHITE:GRAY_L,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[par(txt(r[3]||r[0],{size:20}))]}),
           new TableCell({borders,width:{size:1800,type:WidthType.DXA},shading:{fill:ri%2===0?WHITE:GRAY_L,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[par(txt(r[0],{size:19,color:'666666'}))]}),
-          new TableCell({borders,width:{size:900,type:WidthType.DXA},shading:{fill:r[1]?GREEN_L:RED_L,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[par(txt(r[1]?'Pass':'Fail',{bold:true,size:19,color:r[1]?GREEN:RED}),{alignment:AlignmentType.CENTER})]}),
+          new TableCell({borders,width:{size:900,type:WidthType.DXA},shading:{fill:r[1]==='pass'?GREEN_L:r[1]==='fail'?RED_L:AMBER_L,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[par(txt(r[1]==='pass'?'Pass':r[1]==='fail'?'Fail':'Verify',{bold:true,size:19,color:r[1]==='pass'?GREEN:r[1]==='fail'?RED:AMBER}),{alignment:AlignmentType.CENTER})]}),
           new TableCell({borders,width:{size:3726,type:WidthType.DXA},shading:{fill:ri%2===0?WHITE:GRAY_L,type:ShadingType.CLEAR},margins:{top:80,bottom:80,left:120,right:120},children:[par(txt(r[2],{size:18,color:'666666',italics:true}))]})
         ]}))
       ]
