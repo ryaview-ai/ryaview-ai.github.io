@@ -326,7 +326,24 @@ function _openRzpModal(plan, subId) {
     description: isPro ? 'Pro — ₹2,999/month' : 'Team — ₹7,999/month',
     prefill: { email: _currentUser?.email || '' },
     theme: { color: '#4f8ef7' },
-    modal: { ondismiss: function() { if (window.showToast) showToast('Payment cancelled.'); } },
+    modal: { ondismiss: function() {
+      // UPI mandate: modal dismisses BEFORE webhook fires — poll DB to detect activation
+      const planBefore = _currentPlan;
+      let tries = 0;
+      function _pollPlanActivation() {
+        tries++;
+        fetchUserPlan().then(function() {
+          if ((_currentPlan === 'pro' || _currentPlan === 'team') && _currentPlan !== planBefore) {
+            if (window.showToast) showToast('Plan activated! Welcome to ' + (_currentPlan === 'pro' ? 'Pro' : 'Team') + '! 🎉');
+          } else if (tries < 10) {
+            setTimeout(_pollPlanActivation, 3000); // retry every 3s, up to 30s
+          } else {
+            if (window.showToast) showToast('Payment cancelled. If UPI mandate was approved, your plan activates shortly — refresh to check.');
+          }
+        });
+      }
+      setTimeout(_pollPlanActivation, 3000); // first check after 3s
+    } },
     handler: function() {
       closeUpgradeModal();
       if (window.showToast) showToast('Payment received! Activating plan…');
