@@ -1,17 +1,13 @@
 /* ════════════════════════════════════════════════════════════════
-   ryaview.ai — TENDER COMPLIANCE + AUTO-BOQ MODULE
-
+   ryaview.ai — TENDER COMPLIANCE + AUTO-BOQ MODULE  v1.1
+   v1.1: compliance matrix reads live from brand_compliance table
+         warranty + NDAA = real Pass/Fail, "verified Xd ago" freshness
    FLOW:
    1. User uploads tender PDF
    2. AI extracts approved brands, specs, quantities, site conditions
    3. User picks which approved brand to BOQ for
    4. System matches best models from DB → auto-generates BOQ
    5. Exports: BOQ PDF + Compliance DOCX (with embedded logo)
-
-   INJECTION POINTS:
-   - Nav: <button onclick="sw('tender',this)">Tender</button>
-   - Page: <div id="page-tender" class="page"></div>
-   - Call initTenderPage() when tab activated
    ════════════════════════════════════════════════════════════════ */
 
 /* ── STATE ── */
@@ -19,6 +15,7 @@ let tenderParsed   = null;
 let tenderBoqBrand = '';
 let tenderBoqRows  = [];
 let tenderFileName = '';
+let tenderBrandCompliance = null;
 
 /* ══════════════════════════════════════════════════════════════
    PAGE HTML
@@ -214,7 +211,6 @@ function _isTenderAllowed() {
 function initTenderPage() {
   const el = document.getElementById('page-tender');
   if (!el) return;
-  // ── PLAN GATE ──
   if (!_isTenderAllowed()) {
     el.innerHTML = TENDER_LOCK_HTML;
     if (typeof showUpgradeModal === 'function') showUpgradeModal('tender');
@@ -228,6 +224,7 @@ function initTenderPage() {
     document.head.appendChild(s);
   }
   tenderParsed = null; tenderBoqBrand = ''; tenderBoqRows = []; tenderFileName = '';
+  tenderBrandCompliance = null;
   window._tenderFile = null;
 }
 
@@ -296,7 +293,6 @@ function showTenderLoading(msg, sub) {
 ══════════════════════════════════════════════════════════════ */
 async function runTenderAnalysis() {
   if (!window._tenderFile) { showToast('Upload a tender PDF first.'); return; }
-  // secondary gate — defence in depth
   if (!_isTenderAllowed()) { showUpgradeModal('tender'); return; }
   showTenderLoading('Reading tender PDF...','Extracting text from your document');
   setTenderStep(2);
@@ -436,6 +432,16 @@ async function generateTenderBOQ(brand) {
   showTenderLoading('Generating BOQ...','Matching tender specs to '+brand+' catalogue');
   setTenderStep(4);
   try {
+    // ── Fetch brand compliance data from DB ──
+    tenderBrandCompliance = null;
+    try {
+      const { data: bcData } = await _sb.from('brand_compliance')
+        .select('brand_name,warranty_years_cameras,ndaa_compliant,meity_compliant,bis_certified,country_of_origin,verified_date')
+        .eq('brand_name', brand)
+        .single();
+      tenderBrandCompliance = bcData || null;
+    } catch(_e) { tenderBrandCompliance = null; }
+
     const camModels = BOQ_DB[brand]||[];
     const audModels = (AUDIO_DB||{})[brand]||[];
     tenderBoqRows = [];
@@ -515,13 +521,33 @@ function renderTenderComplianceMatrix() {
   const approved=(tenderParsed.approved_brands||[]).map(b=>b.toLowerCase());
   const sc=tenderParsed.supply_chain_restrictions||'';
   const scRestricted=sc&&sc!=='None'&&sc!=='Not specified';
+  const ndaaRequired=sc&&(sc.toLowerCase().includes('ndaa')||sc.toLowerCase().includes('889'));
   const brandApproved=approved.length===0||approved.includes(tenderBoqBrand.toLowerCase());
+  const bc=tenderBrandCompliance;
+  const freshTag=bc&&bc.verified_date?' (ryaview verified '+_daysSince(bc.verified_date)+'d ago)':'';
 
-  // status: 'pass' | 'fail' | 'verify'
+  // Warranty row — real Pass/Fail from DB
+  let wStatus,wDetail;
+  if(!minW){wStatus='pass';wDetail='No minimum warranty specified in tender';}
+  else if(!bc||bc.warranty_years_cameras==null){wStatus='verify';wDetail='Verify with supplier — no warranty data in ryaview for '+tenderBoqBrand;}
+  else if(bc.warranty_years_cameras>=minW){wStatus='pass';wDetail=tenderBoqBrand+' offers '+bc.warranty_years_cameras+'y warranty — meets '+minW+'y minimum'+freshTag;}
+  else{wStatus='fail';wDetail=tenderBoqBrand+' offers only '+bc.warranty_years_cameras+'y — does NOT meet '+minW+'y minimum'+freshTag;}
+
+  // NDAA/supply chain row — real Pass/Fail from DB
+  let scStatus,scDetail;
+  if(!scRestricted){scStatus='pass';scDetail='No supply chain restriction stated in tender';}
+  else if(ndaaRequired){
+    if(!bc||bc.ndaa_compliant==null){scStatus='verify';scDetail='Verify with supplier — no NDAA data in ryaview for '+tenderBoqBrand;}
+    else if(bc.ndaa_compliant){scStatus='pass';scDetail=tenderBoqBrand+' is NDAA Section 889 compliant'+freshTag;}
+    else{scStatus='fail';scDetail=tenderBoqBrand+' is NOT NDAA Section 889 compliant — cannot supply for this tender'+freshTag;}
+  } else {
+    scStatus='verify';scDetail='Tender requires '+sc+' — verify '+tenderBoqBrand+' compliance with supplier';
+  }
+
   const rows=[
     {req:'Brand approved in tender',spec:(tenderParsed.approved_brands||[]).join(', ')||'All brands',status:brandApproved?'pass':'fail',detail:tenderBoqBrand+(brandApproved?' - listed as approved brand':' - NOT in approved list')},
-    {req:'Minimum warranty',spec:minW?minW+' years':'Not specified',status:minW?'verify':'pass',detail:minW?'Confirm '+tenderBoqBrand+' warranty meets '+minW+'-year minimum with supplier':'No minimum specified'},
-    {req:'Supply chain compliance',spec:sc||'Not specified',status:scRestricted?'verify':'pass',detail:scRestricted?'Tender requires '+sc+' — verify '+tenderBoqBrand+' compliance with supplier':'No supply chain restriction stated'},
+    {req:'Minimum warranty',spec:minW?minW+' years':'Not specified',status:wStatus,detail:wDetail},
+    {req:'Supply chain compliance',spec:sc||'Not specified',status:scStatus,detail:scDetail},
     ...tenderBoqRows.map(r=>({req:(r.category==='audio'?'Audio: ':'Camera: ')+r.requirement,spec:r.requirement,status:'verify',detail:r.model+' - '+r.matchQuality+' match — verify full specs against official datasheet'}))
   ];
 
@@ -536,7 +562,7 @@ function renderTenderComplianceMatrix() {
     </div>`).join('')}
   </div>
   <div style="margin-top:10px;padding:10px 14px;background:var(--s1);border-radius:8px;border:1px solid var(--line);font-size:11px;color:var(--dim);line-height:1.6">
-    Pass = confirmed from tender data. Verify = confirm against official datasheets and supplier before submission. Fail = requirement not met.
+    Pass = confirmed from ryaview verified data. Verify = confirm with supplier before submission. Fail = requirement not met by this brand.
   </div>`;
 }
 
@@ -549,6 +575,7 @@ function switchTenderBoqTab(tab) {
 
 function resetTender() {
   tenderParsed=null;tenderBoqBrand='';tenderBoqRows=[];tenderFileName='';
+  tenderBrandCompliance=null;
   window._tenderFile=null;
   showTenderPanel('upload');setTenderStep(1);
   document.getElementById('tender-file-info').style.display='none';
@@ -567,8 +594,12 @@ function fileToBase64(file) {
   });
 }
 
+function _daysSince(dateStr) {
+  return Math.floor((Date.now()-new Date(dateStr).getTime())/86400000);
+}
+
 /* ══════════════════════════════════════════════════════════════
-   PDF EXPORT - reuses boqPDFDoc with logo embedded via drawPDFHeader
+   PDF EXPORT
 ══════════════════════════════════════════════════════════════ */
 function exportTenderBOQPDF() {
   if (!tenderBoqRows.length) { showToast('Generate a BOQ first.'); return; }
@@ -582,7 +613,7 @@ function exportTenderBOQPDF() {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   DOCX EXPORT - compliance document with embedded logo
+   DOCX EXPORT
 ══════════════════════════════════════════════════════════════ */
 async function exportTenderCompliance() {
   if (!tenderParsed||!tenderBoqRows.length) { showToast('Generate a BOQ first.'); return; }
@@ -603,7 +634,6 @@ async function exportTenderCompliance() {
     const par=(r,o={})=>new Paragraph({spacing:{before:60,after:80},children:Array.isArray(r)?r:[r],...o});
     const hdiv=()=>new Paragraph({spacing:{before:160,after:160},border:{bottom:{style:BorderStyle.SINGLE,size:6,color:BLUE,space:1}},children:[]});
 
-    // Logo image
     let headerChildren=[txt('ryaview.ai',{bold:true,size:20,color:BLUE}),txt('  |  Tender Compliance Document',{size:18,color:'888888'}),txt('  |  Confidential',{size:18,color:'888888'})];
     if (window.RYAVIEW_LOGO_B64) {
       try {
@@ -621,13 +651,33 @@ async function exportTenderCompliance() {
     const approved=(tenderParsed.approved_brands||[]).map(b=>b.toLowerCase());
     const sc=tenderParsed.supply_chain_restrictions||'';
     const scRestricted=sc&&sc!=='None'&&sc!=='Not specified';
+    const ndaaRequired=sc&&(sc.toLowerCase().includes('ndaa')||sc.toLowerCase().includes('889'));
     const brandApproved=approved.length===0||approved.includes(tenderBoqBrand.toLowerCase());
+    const bc=tenderBrandCompliance;
+    const freshTag=bc&&bc.verified_date?' (ryaview verified '+_daysSince(bc.verified_date)+'d ago)':'';
 
-    // status: 'pass' | 'fail' | 'verify'
+    // Warranty — real Pass/Fail
+    let wStatus,wDetail;
+    if(!minW){wStatus='pass';wDetail='No minimum warranty specified';}
+    else if(!bc||bc.warranty_years_cameras==null){wStatus='verify';wDetail='Verify with supplier — no data in ryaview for '+tenderBoqBrand;}
+    else if(bc.warranty_years_cameras>=minW){wStatus='pass';wDetail=tenderBoqBrand+' offers '+bc.warranty_years_cameras+'y — meets '+minW+'y minimum'+freshTag;}
+    else{wStatus='fail';wDetail=tenderBoqBrand+' offers only '+bc.warranty_years_cameras+'y — does NOT meet '+minW+'y minimum'+freshTag;}
+
+    // NDAA/supply chain — real Pass/Fail
+    let scStatus,scDetail;
+    if(!scRestricted){scStatus='pass';scDetail='No supply chain restriction stated';}
+    else if(ndaaRequired){
+      if(!bc||bc.ndaa_compliant==null){scStatus='verify';scDetail='Verify with supplier — no NDAA data in ryaview for '+tenderBoqBrand;}
+      else if(bc.ndaa_compliant){scStatus='pass';scDetail=tenderBoqBrand+' is NDAA Section 889 compliant'+freshTag;}
+      else{scStatus='fail';scDetail=tenderBoqBrand+' is NOT NDAA compliant — cannot supply for this tender'+freshTag;}
+    } else {
+      scStatus='verify';scDetail='Tender requires '+sc+' — verify with supplier';
+    }
+
     const compRows=[
       [(tenderParsed.approved_brands||[]).join(', ')||'All brands',brandApproved?'pass':'fail',tenderBoqBrand+(brandApproved?' - approved brand':' - NOT in approved list'),'Brand approved in tender'],
-      [minW?minW+' years':'Not specified',minW?'verify':'pass',minW?'Confirm '+tenderBoqBrand+' warranty meets '+minW+'-year minimum with supplier':'No minimum specified','Minimum warranty'],
-      [sc||'Not specified',scRestricted?'verify':'pass',scRestricted?'Tender requires '+sc+' — verify '+tenderBoqBrand+' compliance with supplier':'No supply chain restriction stated','Supply chain compliance'],
+      [minW?minW+' years':'Not specified',wStatus,wDetail,'Minimum warranty'],
+      [sc||'Not specified',scStatus,scDetail,'Supply chain compliance'],
       ...tenderBoqRows.map(r=>[r.requirement,'verify',r.model+' - '+r.matchQuality+' match — verify full specs against official datasheet',(r.category==='audio'?'Audio: ':'Camera: ')+r.type])
     ];
 
