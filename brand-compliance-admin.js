@@ -1,12 +1,13 @@
-﻿// ============================================================
-// brand-compliance-admin.js — v1.2
+// ============================================================
+// brand-compliance-admin.js — v1.3
 // Mounts "Brand Compliance Research" section into adm-ai panel.
 // Calls brand-research edge fn (admin-gated, one brand per call).
 // Uses bare _sb + await getAiProxyHeaders() per project conventions.
 // v1.2: 15s delay between brands in Refresh All (rate limit fix)
+// v1.3: Added Honeywell, Pelco, Matrix, Sparsh, IQsight; pause 5s (Haiku)
 // ============================================================
 
-const BC_BRANDS = ['Axis', 'Bosch', 'Hanwha', 'i-PRO', 'Hikvision', 'CP Plus', 'DSPPA', 'TOA'];
+const BC_BRANDS = ['Axis', 'Bosch', 'Hanwha', 'i-PRO', 'Hikvision', 'CP Plus', 'DSPPA', 'TOA', 'Honeywell', 'Pelco', 'Matrix', 'Sparsh', 'IQsight'];
 const BC_FN_URL = 'https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/brand-research';
 
 function initBrandComplianceAdmin() {
@@ -32,7 +33,7 @@ function initBrandComplianceAdmin() {
     const r = document.createElement('div');
     r.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);';
     r.innerHTML =
-      '<span style="min-width:90px;">' + brand + '</span>' +
+      '<span style="min-width:90px;">' + brand + (brand === 'IQsight' ? ' <span style="font-size:10px;color:var(--dim)">(Bosch)</span>' : '') + '</span>' +
       '<span id="bcMeta-' + bcSlug(brand) + '" style="font-size:11px;color:var(--dim);flex:1;text-align:right;margin-right:8px;"></span>' +
       '<button class="btn btn-ghost btn-sm bcResearchBtn" data-brand="' + brand + '">Research</button>';
     rows.appendChild(r);
@@ -67,6 +68,10 @@ async function bcLoadCurrentState() {
       if (row.meity_compliant != null) bits.push('MeitY ' + (row.meity_compliant ? '\u2713' : '\u2717'));
       meta.textContent = bits.join(' \u00B7 ');
     });
+    // IQsight mirrors Bosch row in UI
+    const boschMeta = document.getElementById('bcmeta-bosch');
+    const iqsightMeta = document.getElementById('bcMeta-iqsight');
+    if (boschMeta && iqsightMeta) iqsightMeta.textContent = boschMeta.textContent;
   } catch (e) {
     bcSetStatus('Load failed: ' + (e.message || e));
   }
@@ -105,8 +110,8 @@ async function bcRefreshAll() {
     bcSetStatus('Refresh All: ' + (i + 1) + '/' + BC_BRANDS.length + ' \u2014 ' + BC_BRANDS[i]);
     await bcResearchBrand(BC_BRANDS[i]);
     if (i < BC_BRANDS.length - 1) {
-      bcSetStatus('Pausing 15s before next brand (rate limit)\u2026');
-      await new Promise(function(r) { setTimeout(r, 15000); });
+      bcSetStatus('Pausing 5s before next brand\u2026');
+      await new Promise(function(r) { setTimeout(r, 5000); });
     }
   }
   bcSetStatus('Refresh All complete \u2713');
