@@ -13,11 +13,11 @@ let _currentPlan = 'free';
 
 /* ── Fetch plan from subscriptions table ── */
 async function fetchUserPlan() {
-  if (!window._currentUser) return;
+  if (!_currentUser) return;
   try {
-    const { data } = await window._sb.from('subscriptions')
+    const { data } = await _sb.from('subscriptions')
       .select('plan, status, valid_until')
-      .eq('user_id', window._currentUser.id)
+      .eq('user_id', _currentUser.id)
       .single();
     _currentPlan = (data && data.status === 'active' && data.plan) ? data.plan : 'free';
   } catch(e) {
@@ -60,12 +60,12 @@ window.onAuthSuccess = function(user) {
 
 /* ── Count today's events ── */
 async function getTodayCount(action) {
-  if (!window._currentUser) return 0;
+  if (!_currentUser) return 0;
   try {
     const today = new Date().toISOString().slice(0,10);
-    const { data } = await window._sb.from('usage_events')
+    const { data } = await _sb.from('usage_events')
       .select('id')
-      .eq('user_id', window._currentUser.id)
+      .eq('user_id', _currentUser.id)
       .eq('action', action)
       .gte('ts', today + 'T00:00:00.000Z');
     return data ? data.length : 0;
@@ -184,7 +184,7 @@ async function startCheckout(plan) {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
       },
-      body: JSON.stringify({ plan, user_email: window._currentUser?.email })
+      body: JSON.stringify({ plan, user_email: _currentUser?.email })
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || 'Checkout failed');
@@ -204,7 +204,7 @@ function _openRzpModal(plan, subId) {
     subscription_id: subId,
     name: 'ryaview.ai',
     description: isPro ? 'Pro — ₹2,999/month' : 'Team — ₹7,999/month',
-    prefill: { email: window._currentUser?.email || '' },
+    prefill: { email: _currentUser?.email || '' },
     theme: { color: '#4f8ef7' },
     modal: { ondismiss: function() { if (window.showToast) showToast('Payment cancelled.'); } },
     handler: function() {
@@ -230,14 +230,14 @@ function _openRzpModal(plan, subId) {
 
 /* ── Fallback: user already logged in when module loaded ── */
 (function tryImmediately() {
-  if (window._currentUser) {
+  if (_currentUser) {
     fetchUserPlan();
   } else {
     // Poll briefly in case auth resolves just after module load
     let attempts = 0;
     const poll = setInterval(function() {
       attempts++;
-      if (window._currentUser) {
+      if (_currentUser) {
         clearInterval(poll);
         fetchUserPlan();
       } else if (attempts > 20) {
