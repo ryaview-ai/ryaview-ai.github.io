@@ -1078,11 +1078,7 @@ async function fetchForex() {
   try {
     const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': 'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ',
-        'Authorization': 'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'
-      },
+      headers: await getAiProxyHeaders(),
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 64,
@@ -1157,6 +1153,18 @@ const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
 let _sessionTimer = null;
 let _warnTimer    = null;
 let _currentUser  = null;
+
+/* ── AI-PROXY AUTH HELPER ── */
+async function getAiProxyHeaders() {
+  const session = (await _sb.auth.getSession()).data?.session;
+  const token = session?.access_token;
+  if (!token) throw new Error('Not authenticated');
+  return {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_ANON,
+    'Authorization': 'Bearer ' + token
+  };
+}
 
 /* ── DETECT EMAIL CONFIRMATION REDIRECT — force to sign-in page ── */
 (function detectConfirmationRedirect() {
@@ -2050,7 +2058,7 @@ STRICT RULES — every rule is mandatory:
 
       const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': 'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ', 'Authorization': 'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ' },
+        headers: await getAiProxyHeaders(),
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1500,
@@ -3509,7 +3517,7 @@ Return [] if no changes needed. Only include genuinely EOL models for removal. O
   try {
     const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
       method:'POST',
-      headers:{'Content-Type':'application/json','apikey':'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ','Authorization':'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'},
+      headers: await getAiProxyHeaders(),
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 2000,
@@ -3596,7 +3604,7 @@ async function runAiRefreshAll() {
 
       const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
         method:'POST',
-        headers:{'Content-Type':'application/json','apikey':'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ','Authorization':'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'},
+        headers: await getAiProxyHeaders(),
         body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000, messages:[{role:'user',content:prompt}] })
       });
       const data = await res.json();
@@ -3674,7 +3682,7 @@ Return [] if no changes needed. Only include genuinely discontinued models for r
   try {
     const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
       method:'POST',
-      headers:{'Content-Type':'application/json','apikey':'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ','Authorization':'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'},
+      headers: await getAiProxyHeaders(),
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 2000,
@@ -3754,7 +3762,7 @@ async function runAudioAiRefreshAll() {
 
       const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
         method:'POST',
-        headers:{'Content-Type':'application/json','apikey':'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ','Authorization':'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'},
+        headers: await getAiProxyHeaders(),
         body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000, messages:[{role:'user',content:prompt}] })
       });
       const data = await res.json();
