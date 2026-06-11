@@ -18,8 +18,10 @@ async function fetchUserPlan() {
     const { data } = await _sb.from('subscriptions')
       .select('plan, status, valid_until')
       .eq('user_id', _currentUser.id)
-      .single();
-    _currentPlan = (data && data.status === 'active' && data.plan) ? data.plan : 'free';
+      .single();_currentPlan = (data && data.plan && (
+  data.status === 'active' ||
+  (data.status === 'cancelled' && data.valid_until && new Date(data.valid_until) > new Date())
+)) ? data.plan : 'free';
   } catch(e) {
     _currentPlan = 'free';
   }
