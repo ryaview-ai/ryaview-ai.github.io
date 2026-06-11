@@ -192,11 +192,33 @@ const TENDER_CSS = `
 `;
 
 /* ══════════════════════════════════════════════════════════════
+   PLAN GATE
+══════════════════════════════════════════════════════════════ */
+const TENDER_LOCK_HTML = `
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--mid)" stroke-width="1.5" style="margin-bottom:20px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+  <div style="font-size:18px;font-weight:600;color:var(--head);margin-bottom:8px">Tender Compliance — Pro Feature</div>
+  <div style="font-size:13px;color:var(--mid);max-width:340px;line-height:1.6;margin-bottom:24px">Upload tender PDFs, extract specs, auto-generate BOQs matched to tender requirements, and export compliance documents.</div>
+  <button class="btn btn-og" onclick="if(typeof showUpgradeModal==='function')showUpgradeModal('tender')">Upgrade to Pro →</button>
+</div>`;
+
+function _isTenderAllowed() {
+  if (typeof _currentPlan === 'undefined') return false;
+  return _currentPlan === 'pro' || _currentPlan === 'team';
+}
+
+/* ══════════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════════ */
 function initTenderPage() {
   const el = document.getElementById('page-tender');
   if (!el) return;
+  // ── PLAN GATE ──
+  if (!_isTenderAllowed()) {
+    el.innerHTML = TENDER_LOCK_HTML;
+    if (typeof showUpgradeModal === 'function') showUpgradeModal('tender');
+    return;
+  }
   el.innerHTML = TENDER_PAGE_HTML;
   if (!document.getElementById('tender-css')) {
     const s = document.createElement('style');
@@ -266,6 +288,8 @@ function showTenderLoading(msg, sub) {
 ══════════════════════════════════════════════════════════════ */
 async function runTenderAnalysis() {
   if (!window._tenderFile) { showToast('Upload a tender PDF first.'); return; }
+  // secondary gate — defence in depth
+  if (!_isTenderAllowed()) { showUpgradeModal('tender'); return; }
   showTenderLoading('Reading tender PDF...','Extracting text from your document');
   setTenderStep(2);
   try {
@@ -297,6 +321,7 @@ RULES: approved_brands are ONLY brands explicitly named. Camera types must map t
       method:'POST',
       headers: await getAiProxyHeaders(),
       body: JSON.stringify({
+        ryaview_feature: 'tender',
         model:'claude-sonnet-4-20250514', max_tokens:2000,
         messages:[{role:'user',content:[
           {type:'document',source:{type:'base64',media_type:'application/pdf',data:base64.split(',')[1]}},
@@ -304,6 +329,11 @@ RULES: approved_brands are ONLY brands explicitly named. Camera types must map t
         ]}]
       })
     });
+    if (res.status === 403) {
+      showTenderPanel('upload');
+      showUpgradeModal('tender');
+      return;
+    }
     const data = await res.json();
     const text = (data.content||[]).map(c=>c.text||'').join('').trim();
     tenderParsed = JSON.parse(text.replace(/```json|```/g,'').trim());
