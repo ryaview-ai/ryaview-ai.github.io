@@ -165,10 +165,18 @@ MANDATORY RULES:
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2000,
+      ryaview_feature: 'spec_generator',
       messages: [{ role: 'user', content: prompt }]
     })
   });
 
+  if (res.status === 403) {
+    const errData = await res.json();
+    if (errData.code === 'PLAN_GATE') {
+      if (window.showUpgradeModal) showUpgradeModal('spec_generator');
+      throw new Error('Team plan required for Spec Generator.');
+    }
+  }
   const data = await res.json();
   const text = (data.content || []).map(c => c.text || '').join('').trim();
 
