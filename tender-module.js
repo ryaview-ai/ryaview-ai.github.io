@@ -242,7 +242,14 @@ function handleTenderDrop(e) {
   else showToast('Please upload a PDF file.');
 }
 function handleTenderFileSelect(e) { if (e.target.files[0]) loadTenderFile(e.target.files[0]); }
+const TENDER_MAX_MB = 10;
 function loadTenderFile(file) {
+  if (file.size > TENDER_MAX_MB * 1024 * 1024) {
+    showToast('PDF too large (' + (file.size/1048576).toFixed(1) + ' MB). Max ' + TENDER_MAX_MB + ' MB. Compress or split scanned tenders.');
+    const inp = document.getElementById('tender-file-input');
+    if (inp) inp.value = '';
+    return;
+  }
   tenderFileName = file.name;
   window._tenderFile = file;
   document.getElementById('tender-file-name').textContent = file.name;
@@ -323,7 +330,7 @@ RULES: approved_brands are ONLY brands explicitly named. Camera types must map t
       headers: await getAiProxyHeaders(),
       body: JSON.stringify({
         ryaview_feature: 'tender',
-        model:'claude-sonnet-4-20250514', max_tokens:2000,
+        model:'claude-sonnet-4-20250514', max_tokens:6000,
         messages:[{role:'user',content:[
           {type:'document',source:{type:'base64',media_type:'application/pdf',data:base64.split(',')[1]}},
           {type:'text',text:prompt}
