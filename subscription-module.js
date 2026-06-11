@@ -227,3 +227,22 @@ function _openRzpModal(plan, subId) {
   s.src = 'https://checkout.razorpay.com/v1/checkout.js';
   document.head.appendChild(s);
 })();
+
+/* ── Fallback: user already logged in when module loaded ── */
+(function tryImmediately() {
+  if (window._currentUser) {
+    fetchUserPlan();
+  } else {
+    // Poll briefly in case auth resolves just after module load
+    let attempts = 0;
+    const poll = setInterval(function() {
+      attempts++;
+      if (window._currentUser) {
+        clearInterval(poll);
+        fetchUserPlan();
+      } else if (attempts > 20) {
+        clearInterval(poll);
+      }
+    }, 300);
+  }
+})();
