@@ -2062,9 +2062,17 @@ STRICT RULES — every rule is mandatory:
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1500,
+          ryaview_feature: 'ai_verdict',
           messages: [{ role: 'user', content: prompt }]
         })
       });
+      if (res.status === 403) {
+        const errData = await res.json();
+        if (errData.code === 'PLAN_GATE') {
+          if (window.showUpgradeModal) showUpgradeModal('compare');
+          return;
+        }
+      }
       const data = await res.json();
       const text = (data.content || []).map(c => c.text || '').join('').trim();
       const ai = JSON.parse(text.replace(/```json|```/g, '').trim());
