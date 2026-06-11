@@ -1,8 +1,9 @@
 ﻿// ============================================================
-// brand-compliance-admin.js — v1.1
+// brand-compliance-admin.js — v1.2
 // Mounts "Brand Compliance Research" section into adm-ai panel.
 // Calls brand-research edge fn (admin-gated, one brand per call).
 // Uses bare _sb + await getAiProxyHeaders() per project conventions.
+// v1.2: 15s delay between brands in Refresh All (rate limit fix)
 // ============================================================
 
 const BC_BRANDS = ['Axis', 'Bosch', 'Hanwha', 'i-PRO', 'Hikvision', 'CP Plus', 'DSPPA', 'TOA'];
@@ -103,6 +104,10 @@ async function bcRefreshAll() {
   for (let i = 0; i < BC_BRANDS.length; i++) {
     bcSetStatus('Refresh All: ' + (i + 1) + '/' + BC_BRANDS.length + ' \u2014 ' + BC_BRANDS[i]);
     await bcResearchBrand(BC_BRANDS[i]);
+    if (i < BC_BRANDS.length - 1) {
+      bcSetStatus('Pausing 15s before next brand (rate limit)\u2026');
+      await new Promise(function(r) { setTimeout(r, 15000); });
+    }
   }
   bcSetStatus('Refresh All complete \u2713');
   if (allBtn) allBtn.disabled = false;
