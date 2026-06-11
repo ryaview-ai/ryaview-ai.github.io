@@ -295,7 +295,7 @@ RULES: approved_brands are ONLY brands explicitly named. Camera types must map t
 
     const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
       method:'POST',
-      headers:{'Content-Type':'application/json','apikey':'sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ','Authorization':'Bearer sb_publishable_xne4CDAl1nml80T7AVZGxA_Z8rwpSwZ'},
+      headers: await getAiProxyHeaders(),
       body: JSON.stringify({
         model:'claude-sonnet-4-20250514', max_tokens:2000,
         messages:[{role:'user',content:[
