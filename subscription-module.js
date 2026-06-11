@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════
-   RYAVIEW SUBSCRIPTION MODULE v1.0
-   Plan fetch · gating · upgrade modal · Razorpay checkout
+   RYAVIEW SUBSCRIPTION MODULE v1.1
+   Plan fetch · gating · upgrade modal · billing modal · Razorpay checkout
    ═══════════════════════════════════════════════ */
 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzeXRiamZoanVoZ252Z2R2Z2toIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzA3MTYsImV4cCI6MjA4ODYwNjcxNn0.pim0GxqgOdqgWNNRp15L3YA1yMEfTXbJKXMUBDFXcJc';
@@ -9,21 +9,33 @@ const RZP_KEY_ID        = 'rzp_live_T008Bsexyq5Txm';
 const FREE_BOQ_LIMIT    = 2;
 const FREE_CMP_LIMIT    = 2;
 
-let _currentPlan = 'free';
+let _currentPlan       = 'free';
+let _currentStatus     = 'active';
+let _currentValidUntil = null;
+let _currentSubId      = null;
 
 /* ── Fetch plan from subscriptions table ── */
 async function fetchUserPlan() {
   if (!_currentUser) return;
   try {
     const { data } = await _sb.from('subscriptions')
-      .select('plan, status, valid_until')
+      .select('plan, status, valid_until, razorpay_sub_id')
       .eq('user_id', _currentUser.id)
-      .single();_currentPlan = (data && data.plan && (
-  data.status === 'active' ||
-  (data.status === 'cancelled' && data.valid_until && new Date(data.valid_until) > new Date())
-)) ? data.plan : 'free';
+      .single();
+
+    _currentStatus     = data?.status       || 'active';
+    _currentValidUntil = data?.valid_until  || null;
+    _currentSubId      = data?.razorpay_sub_id || null;
+
+    _currentPlan = (data && data.plan && (
+      data.status === 'active' ||
+      (data.status === 'cancelled' && data.valid_until && new Date(data.valid_until) > new Date())
+    )) ? data.plan : 'free';
   } catch(e) {
-    _currentPlan = 'free';
+    _currentPlan       = 'free';
+    _currentStatus     = 'active';
+    _currentValidUntil = null;
+    _currentSubId      = null;
   }
   updatePlanBadge();
 }
@@ -39,18 +51,18 @@ function updatePlanBadge() {
     if (hright) hright.insertBefore(badge, hright.firstChild);
   }
   const styles = {
-    free:  { text:'FREE',  bg:'rgba(144,174,206,0.08)', border:'1px solid rgba(144,174,206,0.2)',  color:'#90aece', cursor:'pointer' },
-    pro:   { text:'PRO',   bg:'rgba(79,142,247,0.12)',  border:'1.5px solid rgba(79,142,247,0.4)', color:'#7aadfa', cursor:'default' },
-    team:  { text:'TEAM',  bg:'rgba(0,200,83,0.08)',    border:'1.5px solid rgba(0,200,83,0.3)',   color:'#00c853', cursor:'default' }
+    free:  { text:'FREE',  bg:'rgba(144,174,206,0.08)', border:'1px solid rgba(144,174,206,0.2)',  color:'#90aece' },
+    pro:   { text:'PRO',   bg:'rgba(79,142,247,0.12)',  border:'1.5px solid rgba(79,142,247,0.4)', color:'#7aadfa' },
+    team:  { text:'TEAM',  bg:'rgba(0,200,83,0.08)',    border:'1.5px solid rgba(0,200,83,0.3)',   color:'#00c853' }
   };
   const s = styles[_currentPlan] || styles.free;
   badge.textContent = s.text;
   badge.style.background = s.bg;
-  badge.style.border = s.border;
-  badge.style.color = s.color;
-  badge.style.cursor = s.cursor;
-  badge.title = _currentPlan === 'free' ? 'Upgrade plan' : 'Active plan: ' + s.text;
-  badge.onclick = _currentPlan === 'free' ? () => showUpgradeModal('badge') : null;
+  badge.style.border      = s.border;
+  badge.style.color       = s.color;
+  badge.style.cursor      = 'pointer';
+  badge.title  = _currentPlan === 'free' ? 'Upgrade plan' : 'Manage subscription';
+  badge.onclick = _currentPlan === 'free' ? () => showUpgradeModal('badge') : () => showBillingModal();
 }
 
 /* ── Patch onAuthSuccess ── */
@@ -103,6 +115,110 @@ window.runCompare = async function() {
   }
   _origRunCompare_sub();
 };
+
+/* ══════════════════════════════════════
+   BILLING MODAL
+   ══════════════════════════════════════ */
+function injectBillingModal() {
+  if (document.getElementById('rv-billing-modal')) return;
+  document.body.insertAdjacentHTML('beforeend', `
+<div id="rv-billing-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(8,15,30,0.88);backdrop-filter:blur(10px);align-items:center;justify-content:center">
+  <div style="background:#0d1829;border:1px solid #1c3050;border-radius:16px;padding:40px;max-width:480px;width:92%;position:relative;box-shadow:0 32px 80px rgba(0,0,0,0.65)">
+    <button onclick="closeBillingModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#6080a8;font-size:22px;cursor:pointer;line-height:1;padding:4px 8px">×</button>
+    <div style="font-size:10px;font-family:var(--fm);color:#4f8ef7;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px">ryaview.ai</div>
+    <div style="font-size:20px;font-weight:700;color:#edf4fc;letter-spacing:-0.02em;margin-bottom:24px">Your Subscription</div>
+    <div id="rv-billing-body"></div>
+  </div>
+</div>`);
+}
+
+function _billingBody() {
+  const planColor = { pro:'#7aadfa', team:'#00c853', free:'#90aece' }[_currentPlan] || '#90aece';
+  const planLabel = { pro:'PRO', team:'TEAM', free:'FREE' }[_currentPlan] || 'FREE';
+
+  let validStr = '';
+  if (_currentValidUntil) {
+    const d = new Date(_currentValidUntil);
+    validStr = d.toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' });
+  }
+
+  const isCancelled = _currentStatus === 'cancelled';
+  const isPaid      = _currentPlan !== 'free';
+
+  let statusHtml = '';
+  if (isPaid && isCancelled) {
+    statusHtml = `<div style="background:rgba(255,160,0,0.08);border:1px solid rgba(255,160,0,0.25);border-radius:8px;padding:14px 16px;margin-bottom:20px;font-size:12px;color:#ffa000;line-height:1.6">
+      ⚠ Subscription cancelled. Access continues until <strong>${validStr}</strong>, then reverts to Free.
+    </div>`;
+  } else if (isPaid && validStr) {
+    statusHtml = `<div style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:8px;padding:14px 16px;margin-bottom:20px;font-size:12px;color:#90aece;line-height:1.6">
+      Next billing date: <strong style="color:#edf4fc">${validStr}</strong>
+    </div>`;
+  }
+
+  let cancelHtml = '';
+  if (isPaid && !isCancelled) {
+    cancelHtml = `
+    <div id="rv-cancel-confirm" style="display:none;background:rgba(244,67,54,0.06);border:1px solid rgba(244,67,54,0.2);border-radius:8px;padding:16px;margin-bottom:16px">
+      <div style="font-size:12px;color:#ef9a9a;margin-bottom:12px">Cancel at end of billing cycle? You keep access until <strong>${validStr}</strong>.</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="cancelSubscription()" id="rv-confirm-cancel-btn" style="flex:1;padding:9px;background:#f44336;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--f)">Yes, cancel</button>
+        <button onclick="document.getElementById('rv-cancel-confirm').style.display='none'" style="flex:1;padding:9px;background:transparent;color:#6080a8;border:1px solid #1c3050;border-radius:6px;font-size:12px;cursor:pointer;font-family:var(--f)">Keep plan</button>
+      </div>
+    </div>
+    <button onclick="document.getElementById('rv-cancel-confirm').style.display='block'" style="width:100%;padding:10px;background:transparent;color:#6080a8;border:1px solid #1c3050;border-radius:8px;font-size:12px;cursor:pointer;font-family:var(--f);margin-bottom:4px">Cancel subscription</button>`;
+  }
+
+  const upgradeHtml = !isPaid
+    ? `<button onclick="closeBillingModal();showUpgradeModal('badge')" style="width:100%;padding:11px;background:#4f8ef7;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)">Upgrade to Pro →</button>`
+    : '';
+
+  return `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <div style="font-size:13px;color:#6080a8">Current plan</div>
+      <div style="padding:4px 14px;border-radius:100px;font-size:11px;font-weight:700;font-family:var(--fm);letter-spacing:0.06em;background:rgba(79,142,247,0.1);border:1.5px solid rgba(79,142,247,0.3);color:${planColor}">${planLabel}</div>
+    </div>
+    ${statusHtml}
+    ${cancelHtml}
+    ${upgradeHtml}
+    <div style="margin-top:16px;text-align:center;font-size:10px;color:#4a6080;font-family:var(--fm)">Questions? <a href="mailto:support@ryaview.ai" style="color:#4f8ef7;text-decoration:none">support@ryaview.ai</a></div>
+  `;
+}
+
+function showBillingModal() {
+  injectBillingModal();
+  document.getElementById('rv-billing-body').innerHTML = _billingBody();
+  document.getElementById('rv-billing-modal').style.display = 'flex';
+}
+
+function closeBillingModal() {
+  const m = document.getElementById('rv-billing-modal');
+  if (m) m.style.display = 'none';
+}
+
+async function cancelSubscription() {
+  const btn = document.getElementById('rv-confirm-cancel-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
+  try {
+    const res = await fetch(SUPABASE_FN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ action: 'cancel', user_id: _currentUser?.id })
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error || 'Cancel failed');
+    closeBillingModal();
+    await fetchUserPlan();
+    if (window.showToast) showToast('Subscription cancelled. Access continues until end of billing cycle.');
+  } catch(err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Yes, cancel'; }
+    if (window.showToast) showToast('Error: ' + err.message);
+    else alert('Error: ' + err.message);
+  }
+}
 
 /* ══════════════════════════════════════
    UPGRADE MODAL
@@ -186,7 +302,7 @@ async function startCheckout(plan) {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
       },
-      body: JSON.stringify({ plan, user_id: _currentUser?.id, user_email: _currentUser?.email })
+      body: JSON.stringify({ action: 'checkout', plan, user_id: _currentUser?.id, user_email: _currentUser?.email })
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || 'Checkout failed');
@@ -235,7 +351,6 @@ function _openRzpModal(plan, subId) {
   if (_currentUser) {
     fetchUserPlan();
   } else {
-    // Poll briefly in case auth resolves just after module load
     let attempts = 0;
     const poll = setInterval(function() {
       attempts++;
