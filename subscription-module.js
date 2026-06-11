@@ -255,8 +255,7 @@ function injectUpgradeModal() {
           ✓ Tender compliance check<br>
           ✓ Reverse spec generator<br>
           ✓ Up to 5 team members<br>
-          ✓ Priority phone support<br>
-          <span style="color:#4a6080">⏳ Tender module — coming soon</span>
+          ✓ Priority phone support
         </div>
         <button id="rv-btn-team" onclick="startCheckout('team')" style="margin-top:20px;width:100%;padding:11px;background:transparent;color:#00c853;border:1px solid rgba(0,200,83,0.3);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--f)">Upgrade to Team →</button>
       </div>
