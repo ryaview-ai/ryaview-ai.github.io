@@ -184,7 +184,7 @@ async function startCheckout(plan) {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
       },
-      body: JSON.stringify({ plan, user_email: _currentUser?.email })
+      body: JSON.stringify({ plan, user_id: _currentUser?.id, user_email: _currentUser?.email })
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || 'Checkout failed');
