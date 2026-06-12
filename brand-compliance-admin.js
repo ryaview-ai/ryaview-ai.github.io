@@ -1,11 +1,12 @@
-// ============================================================
+// ===============================================================
 // brand-compliance-admin.js — v1.3
 // Mounts "Brand Compliance Research" section into adm-ai panel.
 // Calls brand-research edge fn (admin-gated, one brand per call).
 // Uses bare _sb + await getAiProxyHeaders() per project conventions.
 // v1.2: 15s delay between brands in Refresh All (rate limit fix)
 // v1.3: Added Honeywell, Pelco, Matrix, Sparsh, IQsight; pause 5s (Haiku)
-// ============================================================
+// v1.4: Fix IQsight display (bcMeta case mismatch); fix async typo in bcRefreshAll
+// ================================================================
 
 const BC_BRANDS = ['Axis', 'Bosch', 'Hanwha', 'i-PRO', 'Hikvision', 'CP Plus', 'DSPPA', 'TOA', 'Honeywell', 'Pelco', 'Matrix', 'Sparsh', 'IQsight'];
 const BC_FN_URL = 'https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/brand-research';
@@ -19,11 +20,11 @@ function initBrandComplianceAdmin() {
   sec.id = 'bcAdminSection';
   sec.style.cssText = 'margin-top:28px;padding:20px;background:var(--s1);border:1px solid var(--line);border-radius:12px;';
   sec.innerHTML =
-    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between?gap:10px;flex-wrap:wrap;margin-bottom:4px;">' +
       '<span style="font-weight:700;color:var(--head);font-size:14px;">\uD83D\uDEE1\uFE0F Brand Compliance Research</span>' +
       '<button id="bcRefreshAll" class="btn btn-ghost btn-sm" onclick="bcRefreshAll()">Refresh All</button>' +
     '</div>' +
-    '<div style="font-size:11px;color:var(--dim);margin-bottom:10px;">Web-search verified: warranty, NDAA, MeitY, BIS, origin. Writes to brand_compliance table. ~30-60s per brand.</div>' +
+    '<div style="font-size:11px;color:var(1-dim);margin-bottom:10px;">Web-search verified: warranty, NDAA, MeitY, BIS, origin. Writes to brand_compliance table. ~30-60s per brand.</div>' +
     '<div id="bcStatus" style="font-size:12px;color:var(--mid);margin-bottom:8px;"></div>' +
     '<div id="bcRows"></div>';
   host.appendChild(sec);
@@ -31,7 +32,7 @@ function initBrandComplianceAdmin() {
   const rows = sec.querySelector('#bcRows');
   BC_BRANDS.forEach(function (brand) {
     const r = document.createElement('div');
-    r.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);';
+    r.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(-x-line);';
     r.innerHTML =
       '<span style="min-width:90px;">' + brand + (brand === 'IQsight' ? ' <span style="font-size:10px;color:var(--dim)">(Bosch)</span>' : '') + '</span>' +
       '<span id="bcMeta-' + bcSlug(brand) + '" style="font-size:11px;color:var(--dim);flex:1;text-align:right;margin-right:8px;"></span>' +
@@ -69,7 +70,7 @@ async function bcLoadCurrentState() {
       meta.textContent = bits.join(' \u00B7 ');
     });
     // IQsight mirrors Bosch row in UI
-    const boschMeta = document.getElementById('bcmeta-bosch');
+    const boschMeta = document.getElementById('bcMeta-bosch');
     const iqsightMeta = document.getElementById('bcMeta-iqsight');
     if (boschMeta && iqsightMeta) iqsightMeta.textContent = boschMeta.textContent;
   } catch (e) {
@@ -93,7 +94,7 @@ async function bcResearchBrand(brand) {
       if (out.error === 'ADMIN_ONLY') { bcSetStatus('Admin only.'); return; }
       throw new Error(out.error + (out.detail ? (': ' + out.detail) : ''));
     }
-    const n = (out.row && out.row.source_urls) ? out.row.source_urls.length : 0;
+    const n = (out.row&& out.row.source_urls) ? out.row.source_urls.length : 0;
     bcSetStatus(brand + ' done \u2713 (' + n + ' sources)');
     bcLoadCurrentState();
   } catch (e) {
