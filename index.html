@@ -250,6 +250,11 @@ tbody tr:hover td { background: rgba(79,142,247,0.025) }
 ::-webkit-scrollbar { width: 4px; height: 4px }
 ::-webkit-scrollbar-track { background: transparent }
 ::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 4px }
+/* ─── PREMIUM POLISH ─── */
+#hdr-email { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
+.statrow { box-shadow: 0 4px 32px rgba(0,0,0,0.3); position: relative; }
+.statrow::after { content: ""; position: absolute; top: 0; left: 10%; right: 10%; height: 1px; background: linear-gradient(90deg, transparent, rgba(79,142,247,0.2), transparent); pointer-events: none; }
+.st:last-child { border-left: 2px solid rgba(0,200,83,0.22); }
 </style>
 <style>
 /* ═══ AUTH OVERLAY ═══ */
@@ -450,13 +455,7 @@ tbody tr:hover td { background: rgba(79,142,247,0.025) }
 
 
 <!-- DISCLAIMER STRIP -->
-<div id="disclaimer-strip" style="background:#0f1520;border-bottom:1px solid #1e2d45;padding:7px 48px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
-  <div style="display:flex;align-items:center;gap:8px">
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#e8a820" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    <span style="font-size:9.5px;font-family:var(--fm);color:#90aece;letter-spacing:0.04em"><b style="color:#cddaeb">Prices are indicative only</b> — shown at live USD/INR forex rate — exclusive of customs duties, BCD, SWS, GST, freight &amp; installation</span>
-  </div>
-  <span style="font-size:9.5px;font-family:var(--fm);color:#e8a820;letter-spacing:0.04em;white-space:nowrap;font-weight:600">⚠ AI recommendations can make mistakes — verify before quoting</span>
-</div>
+<div id="disclaimer-strip" style="border-bottom:1px solid var(--line);padding:5px 48px"><span style="font-size:9px;font-family:var(--fm);color:var(--dim);letter-spacing:0.04em">Prices indicative only — exclusive of GST, customs duties, freight — AI may make errors, verify before quoting</span></div>
 
 <!-- NAV -->
 <div class="nav">
