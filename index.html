@@ -1648,7 +1648,6 @@ function stars(n) {
 const SECURITY_KEYWORDS = {
   'TPM 2.0':        3,   // Hardware secure boot chip
   'FIPS 140':       3,   // US federal crypto standard
-  'AXIS OS':        2,   // Purpose-built OS (Axis only in practice)
   '802.1AR':        2,   // Device identity certificate
   'GlobalSign':     2,   // Hardware-level cert authority
   'NDAA':           2,   // US National Defence Auth Act compliant
@@ -2028,7 +2027,7 @@ function runCompare() {
 
       const isGovtClient = document.getElementById('chk-govt-mode')?.checked || false;
 
-      const prompt = `You are a senior surveillance camera technical consultant — specialising in chipset architecture, edge AI, and cybersecurity — for an Axis-authorised systems integrator in India (Q1 2026).
+      const prompt = `You are a senior surveillance camera technical consultant — specialising in chipset architecture, edge AI, and cybersecurity — for a systems integrator in India (Q1 2026).
 
 CLIENT CONTEXT: ${clientCtx || 'General commercial deployment'}
 PROCUREMENT SENSITIVITY: ${isGovtClient ? 'GOVERNMENT / DEFENCE / PSU — strict supply chain and security rules apply' : 'Commercial deployment'}
@@ -2054,9 +2053,9 @@ Return ONLY a JSON object — no text, no markdown:
 
 STRICT RULES — every rule is mandatory:
 - NEVER mention price, cost, rupees, budget or affordability
-- CHIPSET must be named explicitly in every Axis verdict — ARTPEC-7/8/9 as applicable. For non-Axis, name the chip if known or flag it as unspecified third-party SoC
+- CHIPSET must be named explicitly for every camera — ARTPEC-7/8/9 for Axis as applicable, equivalent chip name for others if known, or flag as unspecified SoC if not publicly documented. Apply same standard to all brands
 - ON-CAMERA DEEP LEARNING: if a camera has DLPU/MLPU, explain what this means operationally for the client (edge inferencing, no NVR dependency, network traffic reduction, independent operation). If it lacks this, say so clearly
-- CYBERSECURITY: reference AXIS OS, TPM 2.0, PSIRT, signed firmware, 802.1AR and FIPS certifications when present. For Chinese-origin cameras flag NDAA/EU ban risk where client context makes it relevant
+- CYBERSECURITY: reference the manufacturer's OS security posture, TPM 2.0, signed firmware, 802.1AR, FIPS certifications, and any published vulnerability response program (PSIRT or equivalent) when present. For cameras with confirmed Chinese manufacturing origin flag NDAA/EU ban risk where client context makes it relevant
 - Every verdict must be unique and specific to THIS comparison — no generic brand copy
 - At least one winner reason must reference the client by name or sector`;
 
