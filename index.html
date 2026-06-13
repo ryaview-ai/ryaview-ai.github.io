@@ -3215,7 +3215,7 @@ function switchAdmTab(tab, btn) {
   btn.classList.add('on');
   document.getElementById('adm-' + tab).style.display = '';
   if (tab === 'cameras')   renderCrudTable();
-  if (tab === 'ai')         { renderAiBrandGrid(); initBrandComplianceAdmin(); }
+  if (tab === 'ai')         { renderAiBrandGrid(); initBrandComplianceAdmin(); initDatasheetAdmin(); }
   if (tab === 'approvals')  loadApprovals();
 }
 
@@ -3960,6 +3960,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 <script src="./spec-generator-module.js"></script>
 <script src="./tender-module.js"></script>
 <script src="./brand-compliance-admin.js"></script>
+<script src="./datasheet-admin.js"></script>
 
 <script src="subscription-module.js"></script>
 </body>
