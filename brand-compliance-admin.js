@@ -9,8 +9,9 @@
 // ================================================================
 
 const BC_CAMERA_BRANDS = ['Axis', 'Bosch', 'Hanwha', 'i-PRO', 'Hikvision', 'CP Plus', 'Honeywell', 'Pelco', 'Matrix', 'Sparsh', 'IQsight'];
-const BC_AUDIO_BRANDS  = ['DSPPA', 'TOA'];
-const BC_BRANDS = [...BC_CAMERA_BRANDS, ...BC_AUDIO_BRANDS];
+const BC_AUDIO_BRANDS  = ['Ahuja', 'Algo', 'Axis', 'Bosch', 'Commend', 'DSPPA', 'TOA', 'Tonmind'];
+// Deduplicated for Refresh All (Axis + Bosch appear in both sections)
+const BC_BRANDS = [...BC_CAMERA_BRANDS, ...BC_AUDIO_BRANDS.filter(b => !BC_CAMERA_BRANDS.includes(b))];
 const BC_FN_URL = 'https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/brand-research';
 
 function initBrandComplianceAdmin() {
