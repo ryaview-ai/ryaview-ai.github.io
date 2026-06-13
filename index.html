@@ -250,11 +250,17 @@ tbody tr:hover td { background: rgba(79,142,247,0.025) }
 ::-webkit-scrollbar { width: 4px; height: 4px }
 ::-webkit-scrollbar-track { background: transparent }
 ::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 4px }
+
+/* ─── GLASS MODAL ─── */
+.glass-overlay { position: fixed; inset: 0; background: rgba(5,10,20,0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.glass-card { background: rgba(18,32,53,0.85); border: 1px solid rgba(79,142,247,0.18); border-radius: 16px; padding: 36px; width: 100%; max-width: 480px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04) inset; position: relative; }
+.glass-card::before { content: ""; position: absolute; top: 0; left: 15%; right: 15%; height: 1px; background: linear-gradient(90deg, transparent, rgba(79,142,247,0.4), transparent); }
+
 /* ─── PREMIUM POLISH ─── */
-#hdr-email { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
+#hdr-email { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .statrow { box-shadow: 0 4px 32px rgba(0,0,0,0.3); position: relative; }
 .statrow::after { content: ""; position: absolute; top: 0; left: 10%; right: 10%; height: 1px; background: linear-gradient(90deg, transparent, rgba(79,142,247,0.2), transparent); pointer-events: none; }
-.st:last-child { border-left: 2px solid rgba(0,200,83,0.22); }
+.st:last-child { border-left: 2px solid rgba(0,200,83,0.22); } .statrow { border: 1px solid var(--line2) !important; }
 </style>
 <style>
 /* ═══ AUTH OVERLAY ═══ */
@@ -523,7 +529,7 @@ tbody tr:hover td { background: rgba(79,142,247,0.025) }
   </div>
 
   <!-- FOREX BADGE -->
-  <div id="forex-badge" style="display:flex;align-items:center;gap:10px;margin:10px 0 4px 0;padding:10px 16px;background:rgba(250,188,6,0.08);border:1px solid rgba(250,188,6,0.25);border-radius:8px;font-family:var(--fm)">
+  <div id="forex-badge" style="display:flex;align-items:center;gap:10px;margin:10px 0 4px 0;padding:10px 16px;background:var(--bluebg);border:1px solid var(--line2);border-radius:8px;font-family:var(--fm)">
     <span style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em">Live USD / INR</span>
     <span id="forex-rate" style="font-size:18px;font-weight:700;color:#fabc06;letter-spacing:.03em">₹—</span>
     <span id="forex-time" style="font-size:10px;color:var(--dim)"></span>
