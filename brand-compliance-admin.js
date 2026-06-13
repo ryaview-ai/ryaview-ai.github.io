@@ -80,7 +80,10 @@ async function bcLoadCurrentState() {
       document.querySelectorAll('[data-bc-brand="' + bcSlug(row.brand_name) + '"]').forEach(function(meta) {
       if (!row.verified_date) { meta.textContent = 'not researched'; return; }
       const bits = ['verified ' + row.verified_date];
-      if (row.warranty_years_cameras != null) bits.push('cam ' + row.warranty_years_cameras + 'y');
+      const isAudio = meta.dataset.bcType === 'audio';
+      if (!isAudio && row.warranty_years_cameras != null) bits.push('cam ' + row.warranty_years_cameras + 'y');
+      if (isAudio && row.warranty_years_audio != null) bits.push('audio ' + row.warranty_years_audio + 'y');
+      if (isAudio && row.warranty_years_audio == null) bits.push('audio: —');
       if (row.ndaa_compliant != null) bits.push('NDAA ' + (row.ndaa_compliant ? '\u2713' : '\u2717'));
       if (row.meity_compliant != null) bits.push('MeitY ' + (row.meity_compliant ? '\u2713' : '\u2717'));
       meta.textContent = bits.join(' \u00B7 ');
