@@ -1391,6 +1391,7 @@ function onAuthSuccess(user) {
     if (adminNav) adminNav.style.display = 'none';
     if (adminDemo) adminDemo.style.display = 'none';
   } else {
+    if (adminNav) adminNav.style.display = 'flex';
     loadAdminData();
   }
   startSessionTimer();
