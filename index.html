@@ -353,9 +353,9 @@ tbody tr:hover td { background: rgba(79,142,247,0.025) }
     <!-- LOGIN FORM -->
     <div id='form-login'>
       <div class='auth-field'>
-        <label class='auth-label'>Gmail Address</label>
-        <input class='auth-input' id='li-email' type='email' placeholder='yourname@gmail.com' autocomplete='email'>
-        <div class='auth-hint'>Use your Gmail address — this keeps access traceable and secure.</div>
+        <label class='auth-label'>Email Address</label>
+        <input class='auth-input' id='li-email' type='email' placeholder='your@email.com' autocomplete='email'>
+        <div class='auth-hint'>Use your Email Address — this keeps access traceable and secure.</div>
       </div>
       <div class='auth-field'>
         <label class='auth-label'>Password</label>
@@ -368,8 +368,8 @@ tbody tr:hover td { background: rgba(79,142,247,0.025) }
       <div class='auth-msg' id='li-msg'></div>
       <!-- FORGOT PASSWORD PANEL -->
       <div id='forgot-panel' style='display:none;margin-top:14px;padding:14px;background:rgba(79,142,247,0.05);border:1px solid rgba(79,142,247,0.15);border-radius:8px'>
-        <div style='font-size:11px;color:var(--mid);margin-bottom:10px;line-height:1.6;font-family:var(--fm)'>Enter your Gmail address and we'll send a password reset link.</div>
-        <input class='auth-input' id='forgot-email' type='email' placeholder='yourname@gmail.com' style='margin-bottom:10px'>
+        <div style='font-size:11px;color:var(--mid);margin-bottom:10px;line-height:1.6;font-family:var(--fm)'>Enter your Email Address and we'll send a password reset link.</div>
+        <input class='auth-input' id='forgot-email' type='email' placeholder='your@email.com' style='margin-bottom:10px'>
         <button class='auth-btn' onclick='doForgotPassword()' id='forgot-btn' style='padding:10px'>Send Reset Link</button>
         <div class='auth-msg' id='forgot-msg' style='margin-top:8px'></div>
       </div>
@@ -381,9 +381,9 @@ tbody tr:hover td { background: rgba(79,142,247,0.025) }
         <input class='auth-input' id='rg-name' type='text' placeholder='Your full name'>
       </div>
       <div class='auth-field'>
-        <label class='auth-label'>Gmail Address</label>
-        <input class='auth-input' id='rg-email' type='email' placeholder='yourname@gmail.com' autocomplete='email'>
-        <div class='auth-hint'>ryaview.ai is currently available to Gmail users only.</div>
+        <label class='auth-label'>Email Address</label>
+        <input class='auth-input' id='rg-email' type='email' placeholder='your@email.com' autocomplete='email'>
+        <div class='auth-hint'>Enter your email address.</div>
       </div>
       <div class='auth-field'>
         <label class='auth-label'>Create Password</label>
@@ -1210,10 +1210,8 @@ async function doRegister() {
   const btn   = document.getElementById('rg-btn');
 
   if (!name)  { setMsg(msg,'err','Please enter your name.'); return; }
-  if (!email) { setMsg(msg,'err','Please enter your Gmail address.'); return; }
-  if (!email.endsWith('@gmail.com')) {
-    setMsg(msg,'err','ryaview.ai is currently available to Gmail users only.'); return;
-  }
+  if (!email) { setMsg(msg,'err','Please enter your Email Address.'); return; }
+  
   if (pass.length < 8) { setMsg(msg,'err','Password must be at least 8 characters.'); return; }
 
   btn.disabled = true; btn.textContent = 'Creating account...';
@@ -1241,7 +1239,7 @@ async function doForgotPassword() {
   const btn   = document.getElementById('forgot-btn');
   const msg   = document.getElementById('forgot-msg');
 
-  if (!email) { setMsg(msg, 'err', 'Please enter your Gmail address.'); return; }
+  if (!email) { setMsg(msg, 'err', 'Please enter your Email Address.'); return; }
 
   btn.disabled = true;
   btn.textContent = 'Sending…';
@@ -1312,9 +1310,7 @@ async function doLogin() {
   const msg   = document.getElementById('li-msg');
   const btn   = document.getElementById('li-btn');
 
-  if (!email.endsWith('@gmail.com')) {
-    setMsg(msg,'err','ryaview.ai is currently available to Gmail users only.'); return;
-  }
+  
 
   // ── Check lockout BEFORE attempting ──
   if (isLockedOut(email)) {
@@ -1342,7 +1338,7 @@ async function doLogin() {
     if (data.user.email !== ADMIN_EMAIL) {
       if (!data.user.email_confirmed_at) {
         await _sb.auth.signOut();
-        setMsg(msg,'err','📧 Please confirm your email first — check your Gmail inbox and click the link, then sign in again.');
+        setMsg(msg,'err','📧 Please confirm your email first — check your email inbox and click the link, then sign in again.');
         return;
       }
     }
