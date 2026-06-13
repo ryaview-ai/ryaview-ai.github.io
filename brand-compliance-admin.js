@@ -8,7 +8,9 @@
 // v1.4: Fix IQsight display (bcMeta case mismatch); fix async typo in bcRefreshAll
 // ================================================================
 
-const BC_BRANDS = ['Axis', 'Bosch', 'Hanwha', 'i-PRO', 'Hikvision', 'CP Plus', 'DSPPA', 'TOA', 'Honeywell', 'Pelco', 'Matrix', 'Sparsh', 'IQsight'];
+const BC_CAMERA_BRANDS = ['Axis', 'Bosch', 'Hanwha', 'i-PRO', 'Hikvision', 'CP Plus', 'Honeywell', 'Pelco', 'Matrix', 'Sparsh', 'IQsight'];
+const BC_AUDIO_BRANDS  = ['DSPPA', 'TOA'];
+const BC_BRANDS = [...BC_CAMERA_BRANDS, ...BC_AUDIO_BRANDS];
 const BC_FN_URL = 'https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/brand-research';
 
 function initBrandComplianceAdmin() {
@@ -30,7 +32,15 @@ function initBrandComplianceAdmin() {
   host.appendChild(sec);
 
   const rows = sec.querySelector('#bcRows');
-  BC_BRANDS.forEach(function (brand) {
+
+  function bcSectionHeading(label) {
+    const h = document.createElement('div');
+    h.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--dim);padding:10px 0 4px;margin-top:4px;border-bottom:1px solid var(--line);margin-bottom:2px;';
+    h.textContent = label;
+    rows.appendChild(h);
+  }
+
+  function bcAppendBrandRow(brand) {
     const r = document.createElement('div');
     r.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(-x-line);';
     r.innerHTML =
@@ -38,7 +48,13 @@ function initBrandComplianceAdmin() {
       '<span id="bcMeta-' + bcSlug(brand) + '" style="font-size:11px;color:var(--dim);flex:1;text-align:right;margin-right:8px;"></span>' +
       '<button class="btn btn-ghost btn-sm bcResearchBtn" data-brand="' + brand + '">Research</button>';
     rows.appendChild(r);
-  });
+  }
+
+  bcSectionHeading('📷 Camera Brands');
+  BC_CAMERA_BRANDS.forEach(bcAppendBrandRow);
+
+  bcSectionHeading('🔊 Audio / PA Brands');
+  BC_AUDIO_BRANDS.forEach(bcAppendBrandRow);
 
   rows.querySelectorAll('.bcResearchBtn').forEach(function (btn) {
     btn.addEventListener('click', function () { bcResearchBrand(btn.dataset.brand); });
