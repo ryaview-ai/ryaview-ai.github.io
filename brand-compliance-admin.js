@@ -46,7 +46,7 @@ function initBrandComplianceAdmin() {
     r.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(-x-line);';
     r.innerHTML =
       '<span style="min-width:90px;">' + brand + (brand === 'IQsight' ? ' <span style="font-size:10px;color:var(--dim)">(Bosch)</span>' : '') + '</span>' +
-      '<span id="bcMeta-' + bcSlug(brand) + '" style="font-size:11px;color:var(--dim);flex:1;text-align:right;margin-right:8px;"></span>' +
+      '<span data-bc-brand="' + bcSlug(brand) + '" style="font-size:11px;color:var(--dim);flex:1;text-align:right;margin-right:8px;"></span>' +
       '<button class="btn btn-ghost btn-sm bcResearchBtn" data-brand="' + brand + '">Research</button>';
     rows.appendChild(r);
   }
@@ -77,19 +77,20 @@ async function bcLoadCurrentState() {
       .select('brand_name, verified_date, warranty_years_cameras, ndaa_compliant, meity_compliant');
     if (error) throw error;
     (data || []).forEach(function (row) {
-      const meta = document.getElementById('bcMeta-' + bcSlug(row.brand_name));
-      if (!meta) return;
+      document.querySelectorAll('[data-bc-brand="' + bcSlug(row.brand_name) + '"]').forEach(function(meta) {
       if (!row.verified_date) { meta.textContent = 'not researched'; return; }
       const bits = ['verified ' + row.verified_date];
       if (row.warranty_years_cameras != null) bits.push('cam ' + row.warranty_years_cameras + 'y');
       if (row.ndaa_compliant != null) bits.push('NDAA ' + (row.ndaa_compliant ? '\u2713' : '\u2717'));
       if (row.meity_compliant != null) bits.push('MeitY ' + (row.meity_compliant ? '\u2713' : '\u2717'));
       meta.textContent = bits.join(' \u00B7 ');
+      }); // querySelectorAll forEach
     });
     // IQsight mirrors Bosch row in UI
-    const boschMeta = document.getElementById('bcMeta-bosch');
-    const iqsightMeta = document.getElementById('bcMeta-iqsight');
-    if (boschMeta && iqsightMeta) iqsightMeta.textContent = boschMeta.textContent;
+    const boschMeta = document.querySelector('[data-bc-brand="bosch"]');
+    document.querySelectorAll('[data-bc-brand="iqsight"]').forEach(function(el) {
+      if (boschMeta) el.textContent = boschMeta.textContent;
+    });
   } catch (e) {
     bcSetStatus('Load failed: ' + (e.message || e));
   }
