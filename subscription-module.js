@@ -5,7 +5,7 @@
 
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzeXRiamZoanVoZ252Z2R2Z2toIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwMzA3MTYsImV4cCI6MjA4ODYwNjcxNn0.pim0GxqgOdqgWNNRp15L3YA1yMEfTXbJKXMUBDFXcJc';
 const SUPABASE_FN_URL   = 'https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/razorpay-checkout';
-const RZP_KEY_ID        = 'rzp_live_T008Bsexyq5Txm';
+const RZP_KEY_ID        = 'rzp_test_T0zjCTcKkszEfl';
 const FREE_BOQ_LIMIT    = 2;
 const FREE_CMP_LIMIT    = 2;
 
@@ -51,7 +51,7 @@ function updatePlanBadge() {
     if (hright) hright.insertBefore(badge, hright.firstChild);
   }
   const styles = {
-    free:  { text:'FREE',  bg:'rgba(144,174,206,0.08)', border:'1px solid rgba(144,174,206,0.2)',  color:'#90aece' },
+    free:  { text:'FREE',  bg:'rgba(144,174,206,0.08)', border:'1px solid rgba(144,174,206,0.2)',  color:'90aece' },
     pro:   { text:'PRO',   bg:'rgba(79,142,247,0.12)',  border:'1.5px solid rgba(79,142,247,0.4)', color:'#7aadfa' },
     team:  { text:'TEAM',  bg:'rgba(0,200,83,0.08)',    border:'1.5px solid rgba(0,200,83,0.3)',   color:'#00c853' }
   };
@@ -200,13 +200,16 @@ async function cancelSubscription() {
   const btn = document.getElementById('rv-confirm-cancel-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
   try {
+    const { data: { session } } = await _sb.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) throw new Error('Not logged in');
     const res = await fetch(SUPABASE_FN_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+        'Authorization': 'Bearer ' + accessToken
       },
-      body: JSON.stringify({ action: 'cancel', user_id: _currentUser?.id })
+      body: JSON.stringify({ action: 'cancel' })
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || 'Cancel failed');
@@ -276,8 +279,8 @@ function showUpgradeModal(trigger) {
     hl.textContent = "Daily comparison limit reached";
     sb.textContent = "Free plan allows 2 comparisons per day. Upgrade for unlimited.";
   } else if (trigger === 'tender') {
-    hl.textContent = "Tender Compliance — Pro Feature";
-    sb.textContent = "Upload tender PDFs and auto-generate compliance BOQs. Available on Pro and Team plans.";
+    hl.textContent = "Tender Compliance — Team Feature";
+    sb.textContent = "Upload tender PDFs and auto-generate compliance BOQs. Available on Team plan only.";
   } else {
     hl.textContent = "Upgrade ryaview";
     sb.textContent = "Free plan: 2 BOQ exports/day · 2 comparisons/day";
@@ -298,13 +301,16 @@ async function startCheckout(plan) {
   const orig = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Please wait…'; }
   try {
+    const { data: { session } } = await _sb.auth.getSession();
+    const accessToken = session?.access_token;
+    if (!accessToken) throw new Error('Not logged in');
     const res = await fetch(SUPABASE_FN_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+        'Authorization': 'Bearer ' + accessToken
       },
-      body: JSON.stringify({ action: 'checkout', plan, user_id: _currentUser?.id, user_email: _currentUser?.email })
+      body: JSON.stringify({ action: 'checkout', plan })
     });
     const d = await res.json();
     if (!res.ok) throw new Error(d.error || 'Checkout failed');
@@ -327,7 +333,6 @@ function _openRzpModal(plan, subId) {
     prefill: { email: _currentUser?.email || '' },
     theme: { color: '#4f8ef7' },
     modal: { ondismiss: function() {
-      // UPI mandate: modal dismisses BEFORE webhook fires — poll DB to detect activation
       const planBefore = _currentPlan;
       let tries = 0;
       function _pollPlanActivation() {
@@ -336,13 +341,13 @@ function _openRzpModal(plan, subId) {
           if ((_currentPlan === 'pro' || _currentPlan === 'team') && _currentPlan !== planBefore) {
             if (window.showToast) showToast('Plan activated! Welcome to ' + (_currentPlan === 'pro' ? 'Pro' : 'Team') + '! 🎉');
           } else if (tries < 10) {
-            setTimeout(_pollPlanActivation, 3000); // retry every 3s, up to 30s
+            setTimeout(_pollPlanActivation, 3000);
           } else {
             if (window.showToast) showToast('Payment cancelled. If UPI mandate was approved, your plan activates shortly — refresh to check.');
           }
         });
       }
-      setTimeout(_pollPlanActivation, 3000); // first check after 3s
+      setTimeout(_pollPlanActivation, 3000);
     } },
     handler: function() {
       closeUpgradeModal();
