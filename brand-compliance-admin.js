@@ -41,21 +41,21 @@ function initBrandComplianceAdmin() {
     rows.appendChild(h);
   }
 
-  function bcAppendBrandRow(brand) {
+  function bcAppendBrandRow(brand, type) {
     const r = document.createElement('div');
     r.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(-x-line);';
     r.innerHTML =
       '<span style="min-width:90px;">' + brand + (brand === 'IQsight' ? ' <span style="font-size:10px;color:var(--dim)">(Bosch)</span>' : '') + '</span>' +
-      '<span data-bc-brand="' + bcSlug(brand) + '" style="font-size:11px;color:var(--dim);flex:1;text-align:right;margin-right:8px;"></span>' +
+      '<span data-bc-brand="' + bcSlug(brand) + '" data-bc-type="' + (type||'camera') + '" style="font-size:11px;color:var(--dim);flex:1;text-align:right;margin-right:8px;"></span>' +
       '<button class="btn btn-ghost btn-sm bcResearchBtn" data-brand="' + brand + '">Research</button>';
     rows.appendChild(r);
   }
 
   bcSectionHeading('📷 Camera Brands');
-  BC_CAMERA_BRANDS.forEach(bcAppendBrandRow);
+  BC_CAMERA_BRANDS.forEach(function(b) { bcAppendBrandRow(b, 'camera'); });
 
   bcSectionHeading('🔊 Audio / PA Brands');
-  BC_AUDIO_BRANDS.forEach(bcAppendBrandRow);
+  BC_AUDIO_BRANDS.forEach(function(b) { bcAppendBrandRow(b, 'audio'); });
 
   rows.querySelectorAll('.bcResearchBtn').forEach(function (btn) {
     btn.addEventListener('click', function () { bcResearchBrand(btn.dataset.brand); });
@@ -74,7 +74,7 @@ function bcSetStatus(msg) {
 async function bcLoadCurrentState() {
   try {
     const { data, error } = await _sb.from('brand_compliance')
-      .select('brand_name, verified_date, warranty_years_cameras, ndaa_compliant, meity_compliant');
+      .select('brand_name, verified_date, warranty_years_cameras, warranty_years_audio, ndaa_compliant, meity_compliant');
     if (error) throw error;
     (data || []).forEach(function (row) {
       document.querySelectorAll('[data-bc-brand="' + bcSlug(row.brand_name) + '"]').forEach(function(meta) {
