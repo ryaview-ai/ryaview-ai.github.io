@@ -123,7 +123,7 @@ function injectBillingModal() {
   if (document.getElementById('rv-billing-modal')) return;
   document.body.insertAdjacentHTML('beforeend', `
 <div id="rv-billing-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(8,15,30,0.88);backdrop-filter:blur(10px);align-items:center;justify-content:center">
-  <div style="background:#0d1829;border:1px solid #1c3050;border-radius:16px;padding:40px;max-width:480px;width:92%;position:relative;box-shadow:0 32px 80px rgba(0,0,0,0.65)">
+  <div style="background:rgba(13,24,41,0.82);border:1px solid rgba(79,142,247,0.2);border-radius:16px;padding:40px;max-width:480px;width:92%;position:relative;box-shadow:0 32px 80px rgba(0,0,0,0.65),0 0 0 1px rgba(255,255,255,0.04) inset;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)">
     <button onclick="closeBillingModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#6080a8;font-size:22px;cursor:pointer;line-height:1;padding:4px 8px">×</button>
     <div style="font-size:10px;font-family:var(--fm);color:#4f8ef7;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px">ryaview.ai</div>
     <div style="font-size:20px;font-weight:700;color:#edf4fc;letter-spacing:-0.02em;margin-bottom:24px">Your Subscription</div>
@@ -230,7 +230,7 @@ function injectUpgradeModal() {
   if (document.getElementById('rv-upgrade-modal')) return;
   document.body.insertAdjacentHTML('beforeend', `
 <div id="rv-upgrade-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(8,15,30,0.88);backdrop-filter:blur(10px);align-items:center;justify-content:center">
-  <div style="background:#0d1829;border:1px solid #1c3050;border-radius:16px;padding:40px;max-width:660px;width:92%;position:relative;box-shadow:0 32px 80px rgba(0,0,0,0.65)">
+  <div style="background:rgba(13,24,41,0.82);border:1px solid rgba(79,142,247,0.2);border-radius:16px;padding:40px;max-width:660px;width:92%;position:relative;box-shadow:0 32px 80px rgba(0,0,0,0.65),0 0 0 1px rgba(255,255,255,0.04) inset;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)">
     <button onclick="closeUpgradeModal()" style="position:absolute;top:14px;right:16px;background:none;border:none;color:#6080a8;font-size:22px;cursor:pointer;line-height:1;padding:4px 8px">×</button>
     <div style="font-size:10px;font-family:var(--fm);color:#4f8ef7;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px">ryaview.ai</div>
     <div id="rv-upgrade-headline" style="font-size:22px;font-weight:700;color:#edf4fc;letter-spacing:-0.02em;margin-bottom:6px">You've hit your daily free limit</div>
