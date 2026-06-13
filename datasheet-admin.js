@@ -65,7 +65,7 @@ function dsRenderTable(brand, models) {
     const hasUrl = !!m.datasheet_url;
     const ago = m.verified_date ? dsDaysAgo(m.verified_date) + 'd ago' : '\u2014';
     const urlCell = hasUrl
-      ? '<a href="' + m.datasheet_url + '" target="_blank" rel="noopener" style="color:var(--acc);font-size:10px;">\u2197</a>'
+      ? '<a href="' + m.datasheet_url + '" target="_blank" rel="noopener" style="color:var(--acc);font-size:13px;font-weight:600;" title="' + m.datasheet_url + '">\u2197 PDF</a>'
       : '<span style="color:var(--dim);">\u2014</span>';
     return '<tr id="dsRow_' + dsSlug(m.model) + '">' +
       '<td style="font-size:11px;padding:5px 6px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + m.model + '">' + m.model + '</td>' +
@@ -120,7 +120,7 @@ async function dsVerifyModel(btn) {
     const urlEl = document.getElementById('dsUrl_' + slug);
     const agoEl = document.getElementById('dsAgo_' + slug);
     if (urlEl && out.datasheet_url) {
-      urlEl.innerHTML = '<a href="' + out.datasheet_url + '" target="_blank" rel="noopener" style="color:var(--acc);font-size:10px;">\u2197</a>';
+      urlEl.innerHTML = '<a href="' + out.datasheet_url + '" target="_blank" rel="noopener" style="color:var(--acc);font-size:13px;font-weight:600;" title="' + out.datasheet_url + '">\u2197 PDF</a>';
       btn.dataset.url = out.datasheet_url;
     }
     if (agoEl) agoEl.textContent = '0d ago';
