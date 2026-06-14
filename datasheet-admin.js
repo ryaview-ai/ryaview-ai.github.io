@@ -1,8 +1,9 @@
 // ================================================================
-// datasheet-admin.js — v1.0
+// datasheet-admin.js — v1.1
 // Mounts "Datasheet Verification" section into adm-ai panel.
 // Calls datasheet-verify edge fn (admin-gated) per camera model.
 // Brand dropdown → load models → table with Verify btn per row.
+// v1.1: manual PDF URL input per row for admin override
 // ================================================================
 
 const DS_FN_URL = 'https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/datasheet-verify';
@@ -20,7 +21,7 @@ function initDatasheetAdmin() {
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">' +
       '<span style="font-weight:700;color:var(--head);font-size:14px;">\uD83D\uDCCB Datasheet Verification</span>' +
     '</div>' +
-    '<div style="font-size:11px;color:var(--dim);margin-bottom:10px;">Per-model: Claude finds datasheet URL + extracts specs. Writes datasheet_url + verified_date to cameras table.</div>' +
+    '<div style="font-size:11px;color:var(--dim);margin-bottom:10px;">Per-model: Claude finds datasheet PDF + extracts specs. Writes datasheet_url + verified_date to cameras table. Paste a PDF URL to override auto-search.</div>' +
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">' +
       '<select id="dsBrandSelect" style="padding:4px 8px;font-size:12px;background:var(--s2);border:1px solid var(--line);border-radius:6px;color:var(--text);min-width:140px;">' +
         '<option value="">\u2014 Select brand \u2014</option>' +
@@ -63,19 +64,24 @@ function dsRenderTable(brand, models) {
   const wrap = document.getElementById('dsTable');
   const rows = models.map(function(m) {
     const hasUrl = !!m.datasheet_url;
-    const ago = m.verified_date ? dsDaysAgo(m.verified_date) + 'd ago' : '\u2014';
-    const urlCell = hasUrl
-      ? '<a href="' + m.datasheet_url + '" target="_blank" rel="noopener" style="color:var(--acc);font-size:13px;font-weight:600;" title="' + m.datasheet_url + '">\u2197 PDF</a>'
+    const isPdf  = hasUrl && m.datasheet_url.toLowerCase().includes('.pdf');
+    const ago    = m.verified_date ? dsDaysAgo(m.verified_date) + 'd ago' : '\u2014';
+    const urlLabel = isPdf ? '\u2197 PDF' : (hasUrl ? '\u2197 page' : '\u2014');
+    const urlStyle = isPdf ? 'color:var(--money);' : 'color:var(--acc);';
+    const urlCell  = hasUrl
+      ? '<a href="' + m.datasheet_url + '" target="_blank" rel="noopener" style="font-size:13px;font-weight:600;' + urlStyle + '" title="' + m.datasheet_url + '">' + urlLabel + '</a>'
       : '<span style="color:var(--dim);">\u2014</span>';
-    return '<tr id="dsRow_' + dsSlug(m.model) + '">' +
-      '<td style="font-size:11px;padding:5px 6px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + m.model + '">' + m.model + '</td>' +
-      '<td style="font-size:11px;padding:5px 6px;text-align:center;" id="dsUrl_' + dsSlug(m.model) + '">' + urlCell + '</td>' +
-      '<td style="font-size:11px;padding:5px 6px;text-align:center;color:var(--dim);" id="dsAgo_' + dsSlug(m.model) + '">' + ago + '</td>' +
-      '<td style="padding:5px 6px;">' +
+    const slug = dsSlug(m.model);
+    return '<tr id="dsRow_' + slug + '">' +
+      '<td style="font-size:11px;padding:5px 6px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + m.model + '">' + m.model + '</td>' +
+      '<td style="font-size:11px;padding:5px 6px;text-align:center;" id="dsUrl_' + slug + '">' + urlCell + '</td>' +
+      '<td style="font-size:11px;padding:5px 6px;text-align:center;color:var(--dim);" id="dsAgo_' + slug + '">' + ago + '</td>' +
+      '<td style="padding:5px 6px;display:flex;gap:4px;align-items:center;">' +
+        '<input type="text" id="dsInput_' + slug + '" placeholder="Paste PDF URL (optional)" ' +
+          'style="font-size:10px;padding:2px 5px;width:190px;background:var(--s2);border:1px solid var(--line);border-radius:4px;color:var(--text);" />' +
         '<button class="btn btn-ghost btn-sm" ' +
           'data-brand="' + brand + '" ' +
           'data-model="' + m.model + '" ' +
-          'data-url="' + (m.datasheet_url || '') + '" ' +
           'onclick="dsVerifyModel(this)">Verify</button>' +
       '</td>' +
     '</tr>';
@@ -86,7 +92,7 @@ function dsRenderTable(brand, models) {
         '<th style="font-size:10px;font-weight:700;text-align:left;padding:4px 6px;color:var(--dim);border-bottom:1px solid var(--line);">Model</th>' +
         '<th style="font-size:10px;font-weight:700;text-align:center;padding:4px 6px;color:var(--dim);border-bottom:1px solid var(--line);">URL</th>' +
         '<th style="font-size:10px;font-weight:700;text-align:center;padding:4px 6px;color:var(--dim);border-bottom:1px solid var(--line);">Verified</th>' +
-        '<th style="padding:4px 6px;border-bottom:1px solid var(--line);"></th>' +
+        '<th style="font-size:10px;font-weight:700;text-align:left;padding:4px 6px;color:var(--dim);border-bottom:1px solid var(--line);">Action</th>' +
       '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
     '</table>';
@@ -95,14 +101,24 @@ function dsRenderTable(brand, models) {
 async function dsVerifyModel(btn) {
   const brand = btn.dataset.brand;
   const model = btn.dataset.model;
-  const existingUrl = btn.dataset.url;
+  const slug  = dsSlug(model);
+
+  // Manual override: if admin pasted a URL in the input, use it (Path A — PDF read)
+  const inputEl    = document.getElementById('dsInput_' + slug);
+  const manualUrl  = inputEl ? inputEl.value.trim() : '';
+
   btn.disabled = true;
   btn.textContent = '\u2026';
-  dsSetStatus('Verifying ' + model + '\u2026 (web search, ~30-60s)');
+  dsSetStatus('Verifying ' + model + '\u2026 (this takes ~30-60s)');
+
   try {
     const headers = await getAiProxyHeaders();
-    const body = { brand: brand, model: model };
-    if (existingUrl) body.datasheet_url = existingUrl;
+    const body    = { brand: brand, model: model };
+    if (manualUrl) {
+      body.datasheet_url = manualUrl;  // Path A: read PDF directly
+    }
+    // Note: no longer sending existingUrl — if DB has a product page URL,
+    // re-verify should use Path B (web search + page fetch) not Path A
     const res = await fetch(DS_FN_URL, {
       method: 'POST',
       headers: headers,
@@ -113,17 +129,20 @@ async function dsVerifyModel(btn) {
       if (out.error === 'ADMIN_ONLY') { dsSetStatus('Admin only.'); return; }
       throw new Error(out.error || ('HTTP ' + res.status));
     }
-    const method = out.confirmed ? 'PDF \u2713' : 'web \u2713';
+    const isPdf   = out.datasheet_url && out.datasheet_url.toLowerCase().includes('.pdf');
+    const method  = isPdf ? 'PDF \u2713' : (out.confirmed ? 'confirmed \u2713' : 'page only');
     dsSetStatus(model + ' done \u2713 (' + method + ')');
-    // update cells in-place
-    const slug = dsSlug(model);
+
+    // Update cells in-place
     const urlEl = document.getElementById('dsUrl_' + slug);
     const agoEl = document.getElementById('dsAgo_' + slug);
     if (urlEl && out.datasheet_url) {
-      urlEl.innerHTML = '<a href="' + out.datasheet_url + '" target="_blank" rel="noopener" style="color:var(--acc);font-size:13px;font-weight:600;" title="' + out.datasheet_url + '">\u2197 PDF</a>';
-      btn.dataset.url = out.datasheet_url;
+      const lbl   = isPdf ? '\u2197 PDF' : '\u2197 page';
+      const color = isPdf ? 'var(--money)' : 'var(--acc)';
+      urlEl.innerHTML = '<a href="' + out.datasheet_url + '" target="_blank" rel="noopener" style="font-size:13px;font-weight:600;color:' + color + ';" title="' + out.datasheet_url + '">' + lbl + '</a>';
     }
     if (agoEl) agoEl.textContent = '0d ago';
+    if (inputEl) inputEl.value = '';  // clear manual input after success
   } catch(e) {
     dsSetStatus(model + ' failed: ' + (e.message || e));
   } finally {
