@@ -1908,7 +1908,8 @@ function runCompare() {
           <div style="width:${sc.total}%;height:100%;background:${isWin?'var(--blue)':'var(--dim)'};border-radius:3px"></div>
         </div>
         <div style="font-size:9px;font-family:var(--fm);color:${isWin?'var(--blue2)':'var(--mid)'}">${sc.total}</div>
-      </div>`
+      </div>
+      <div style="margin-top:5px;min-height:14px"><span id="fresh-${c.model.replace(/[^a-zA-Z0-9]/g,'-')}" style="font-size:9px;color:var(--dim)">Checking…</span></div>`
     };
   });
 
@@ -1974,6 +1975,35 @@ function runCompare() {
   const inner = document.getElementById('matrix-inner');
   inner.innerHTML = matrixHtml;
   inner.style.minWidth = Math.max(900, 140 + cams.length * 220) + 'px';
+
+  // ── Freshness tags — async Supabase lookup ──
+  (async () => {
+    try {
+      const models = cams.map(c => c.model);
+      const { data: fresRows } = await _sb.from('cameras')
+        .select('model, verified_date, datasheet_url')
+        .in('model', models);
+      if (!fresRows) return;
+      const fm = {};
+      fresRows.forEach(r => { fm[r.model] = r; });
+      cams.forEach(c => {
+        const el = document.getElementById('fresh-' + c.model.replace(/[^a-zA-Z0-9]/g,'-'));
+        if (!el) return;
+        const dbRow = fm[c.model];
+        if (!dbRow || !dbRow.verified_date) {
+          el.textContent = '⚠ Not yet verified';
+          el.style.color = 'var(--dim)';
+        } else {
+          const days = Math.floor((Date.now() - new Date(dbRow.verified_date).getTime()) / 86400000);
+          const freshLabel = days === 0 ? 'today' : days === 1 ? '1 day ago' : days + ' days ago';
+          const src = dbRow.datasheet_url
+            ? ' · <a href="' + dbRow.datasheet_url + '" target="_blank" rel="noopener" style="color:var(--blue2);text-decoration:none">View Source ↗<\/a>'
+            : '';
+          el.innerHTML = '<span style="color:var(--money)">✓ Verified ' + freshLabel + src + '</span>';
+        }
+      });
+    } catch(e) { console.warn('Freshness fetch:', e); }
+  })();
 
   document.getElementById('matrix-wrap').style.display   = 'block';
   document.getElementById('btn-pdf').style.display       = 'inline-flex';
