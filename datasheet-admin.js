@@ -1,13 +1,14 @@
 // ================================================================
-// datasheet-admin.js — v1.1
+// datasheet-admin.js — v1.2
 // Mounts "Datasheet Verification" section into adm-ai panel.
-// Calls datasheet-verify edge fn (admin-gated) per camera model.
-// Brand dropdown → load models → table with Verify btn per row.
-// v1.1: manual PDF URL input per row for admin override
+// v1.1: manual PDF URL input, PDF vs page distinction
+// v1.2: Verify All (sequential, skips already-verified, stoppable)
 // ================================================================
 
 const DS_FN_URL = 'https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/datasheet-verify';
 const DS_BRANDS = ['Axis','Bosch','Hanwha','i-PRO','Hikvision','CP Plus','Honeywell','Pelco','Matrix','Sparsh'];
+
+let _dsStop = false;   // stop flag for Verify All
 
 function initDatasheetAdmin() {
   const host = document.getElementById('adm-ai');
@@ -18,16 +19,18 @@ function initDatasheetAdmin() {
   sec.id = 'dsAdminSection';
   sec.style.cssText = 'margin-top:28px;padding:20px;background:var(--s1);border:1px solid var(--line);border-radius:12px;';
   sec.innerHTML =
-    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">' +
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">' +
       '<span style="font-weight:700;color:var(--head);font-size:14px;">\uD83D\uDCCB Datasheet Verification</span>' +
     '</div>' +
-    '<div style="font-size:11px;color:var(--dim);margin-bottom:10px;">Per-model: Claude finds datasheet PDF + extracts specs. Writes datasheet_url + verified_date to cameras table. Paste a PDF URL to override auto-search.</div>' +
+    '<div style="font-size:11px;color:var(--dim);margin-bottom:10px;">Per-model: Claude finds PDF + extracts specs. Paste PDF URL to override auto-search. Verify All runs sequentially — skips already-verified models.</div>' +
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">' +
       '<select id="dsBrandSelect" style="padding:4px 8px;font-size:12px;background:var(--s2);border:1px solid var(--line);border-radius:6px;color:var(--text);min-width:140px;">' +
         '<option value="">\u2014 Select brand \u2014</option>' +
         DS_BRANDS.map(function(b) { return '<option>' + b + '</option>'; }).join('') +
       '</select>' +
       '<button class="btn btn-ghost btn-sm" onclick="dsLoadBrand()">Load Models</button>' +
+      '<button class="btn btn-ghost btn-sm" id="dsVerifyAllBtn" onclick="dsVerifyAll()" style="display:none;">Verify All Unverified</button>' +
+      '<button class="btn btn-ghost btn-sm" id="dsStopBtn" onclick="dsStopAll()" style="display:none;color:var(--red);">Stop</button>' +
       '<span id="dsStatus" style="font-size:11px;color:var(--mid);"></span>' +
     '</div>' +
     '<div id="dsTable"></div>';
@@ -44,6 +47,7 @@ async function dsLoadBrand() {
   if (!brand) { dsSetStatus('Select brand first.'); return; }
   dsSetStatus('Loading\u2026');
   document.getElementById('dsTable').innerHTML = '';
+  document.getElementById('dsVerifyAllBtn').style.display = 'none';
   try {
     const { data, error } = await _sb
       .from('cameras')
@@ -53,8 +57,10 @@ async function dsLoadBrand() {
       .order('model');
     if (error) throw error;
     if (!data || !data.length) { dsSetStatus('No active models for ' + brand); return; }
-    dsSetStatus(data.length + ' models');
+    const unverified = data.filter(function(m) { return !m.verified_date; }).length;
+    dsSetStatus(data.length + ' models · ' + unverified + ' unverified');
     dsRenderTable(brand, data);
+    document.getElementById('dsVerifyAllBtn').style.display = unverified > 0 ? 'inline-flex' : 'none';
   } catch(e) {
     dsSetStatus('Failed: ' + (e.message || e));
   }
@@ -67,9 +73,9 @@ function dsRenderTable(brand, models) {
     const isPdf  = hasUrl && m.datasheet_url.toLowerCase().includes('.pdf');
     const ago    = m.verified_date ? dsDaysAgo(m.verified_date) + 'd ago' : '\u2014';
     const urlLabel = isPdf ? '\u2197 PDF' : (hasUrl ? '\u2197 page' : '\u2014');
-    const urlStyle = isPdf ? 'color:var(--money);' : 'color:var(--acc);';
+    const urlColor = isPdf ? 'var(--money)' : 'var(--acc)';
     const urlCell  = hasUrl
-      ? '<a href="' + m.datasheet_url + '" target="_blank" rel="noopener" style="font-size:13px;font-weight:600;' + urlStyle + '" title="' + m.datasheet_url + '">' + urlLabel + '</a>'
+      ? '<a href="' + m.datasheet_url + '" target="_blank" rel="noopener" style="font-size:13px;font-weight:600;color:' + urlColor + ';" title="' + m.datasheet_url + '">' + urlLabel + '</a>'
       : '<span style="color:var(--dim);">\u2014</span>';
     const slug = dsSlug(m.model);
     return '<tr id="dsRow_' + slug + '">' +
@@ -82,6 +88,7 @@ function dsRenderTable(brand, models) {
         '<button class="btn btn-ghost btn-sm" ' +
           'data-brand="' + brand + '" ' +
           'data-model="' + m.model + '" ' +
+          'id="dsBtn_' + slug + '" ' +
           'onclick="dsVerifyModel(this)">Verify</button>' +
       '</td>' +
     '</tr>';
@@ -102,56 +109,110 @@ async function dsVerifyModel(btn) {
   const brand = btn.dataset.brand;
   const model = btn.dataset.model;
   const slug  = dsSlug(model);
-
-  // Manual override: if admin pasted a URL in the input, use it (Path A — PDF read)
-  const inputEl    = document.getElementById('dsInput_' + slug);
-  const manualUrl  = inputEl ? inputEl.value.trim() : '';
+  const inputEl   = document.getElementById('dsInput_' + slug);
+  const manualUrl = inputEl ? inputEl.value.trim() : '';
 
   btn.disabled = true;
   btn.textContent = '\u2026';
-  dsSetStatus('Verifying ' + model + '\u2026 (this takes ~30-60s)');
 
   try {
     const headers = await getAiProxyHeaders();
     const body    = { brand: brand, model: model };
-    if (manualUrl) {
-      body.datasheet_url = manualUrl;  // Path A: read PDF directly
-    }
-    // Note: no longer sending existingUrl — if DB has a product page URL,
-    // re-verify should use Path B (web search + page fetch) not Path A
-    const res = await fetch(DS_FN_URL, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(body)
-    });
+    if (manualUrl) body.datasheet_url = manualUrl;
+
+    const res = await fetch(DS_FN_URL, { method:'POST', headers:headers, body:JSON.stringify(body) });
     const out = await res.json();
     if (!res.ok) {
       if (out.error === 'ADMIN_ONLY') { dsSetStatus('Admin only.'); return; }
       throw new Error(out.error || ('HTTP ' + res.status));
     }
-    const isPdf   = out.datasheet_url && out.datasheet_url.toLowerCase().includes('.pdf');
-    const method  = isPdf ? 'PDF \u2713' : (out.confirmed ? 'confirmed \u2713' : 'page only');
-    dsSetStatus(model + ' done \u2713 (' + method + ')');
 
-    // Update cells in-place
-    const urlEl = document.getElementById('dsUrl_' + slug);
-    const agoEl = document.getElementById('dsAgo_' + slug);
-    if (urlEl && out.datasheet_url) {
-      const lbl   = isPdf ? '\u2197 PDF' : '\u2197 page';
-      const color = isPdf ? 'var(--money)' : 'var(--acc)';
-      urlEl.innerHTML = '<a href="' + out.datasheet_url + '" target="_blank" rel="noopener" style="font-size:13px;font-weight:600;color:' + color + ';" title="' + out.datasheet_url + '">' + lbl + '</a>';
-    }
-    if (agoEl) agoEl.textContent = '0d ago';
-    if (inputEl) inputEl.value = '';  // clear manual input after success
+    dsUpdateRow(slug, out);
+    if (inputEl) inputEl.value = '';
+    return out;
   } catch(e) {
     dsSetStatus(model + ' failed: ' + (e.message || e));
+    throw e;
   } finally {
     btn.disabled = false;
     btn.textContent = 'Verify';
   }
 }
 
-function dsSlug(str) { return str.replace(/[^a-z0-9]/gi, '').toLowerCase(); }
+function dsUpdateRow(slug, out) {
+  const urlEl = document.getElementById('dsUrl_' + slug);
+  const agoEl = document.getElementById('dsAgo_' + slug);
+  if (urlEl && out.datasheet_url) {
+    const isPdf  = out.datasheet_url.toLowerCase().includes('.pdf');
+    const lbl    = isPdf ? '\u2197 PDF' : '\u2197 page';
+    const color  = isPdf ? 'var(--money)' : 'var(--acc)';
+    urlEl.innerHTML = '<a href="' + out.datasheet_url + '" target="_blank" rel="noopener" style="font-size:13px;font-weight:600;color:' + color + ';" title="' + out.datasheet_url + '">' + lbl + '</a>';
+  }
+  if (agoEl) agoEl.textContent = '0d ago';
+}
+
+async function dsVerifyAll() {
+  const brand = document.getElementById('dsBrandSelect').value;
+  if (!brand) { dsSetStatus('Select brand first.'); return; }
+
+  _dsStop = false;
+  document.getElementById('dsVerifyAllBtn').style.display = 'none';
+  document.getElementById('dsStopBtn').style.display = 'inline-flex';
+
+  // Collect all unverified rows (no 0d ago / no verified text)
+  const rows = document.querySelectorAll('#dsTable tbody tr');
+  const queue = [];
+  rows.forEach(function(row) {
+    const agoEl = row.querySelector('[id^="dsAgo_"]');
+    const btn   = row.querySelector('button[data-model]');
+    if (btn && agoEl && agoEl.textContent.trim() === '\u2014') {
+      queue.push(btn);
+    }
+  });
+
+  if (!queue.length) { dsSetStatus('All models already verified.'); dsVerifyAllDone(); return; }
+
+  let done = 0, pdfs = 0, pages = 0, failed = 0;
+  dsSetStatus('0/' + queue.length + ' \u2014 starting\u2026');
+
+  for (let i = 0; i < queue.length; i++) {
+    if (_dsStop) { dsSetStatus('Stopped at ' + done + '/' + queue.length + '. ' + pdfs + ' PDF, ' + pages + ' page, ' + failed + ' failed.'); break; }
+
+    const btn   = queue[i];
+    const model = btn.dataset.model;
+    dsSetStatus((i+1) + '/' + queue.length + ' \u2014 ' + model + '\u2026');
+
+    try {
+      const out = await dsVerifyModel(btn);
+      done++;
+      if (out && out.datasheet_url && out.datasheet_url.toLowerCase().includes('.pdf')) pdfs++;
+      else if (out && out.datasheet_url) pages++;
+    } catch(_) {
+      failed++;
+    }
+
+    if (i < queue.length - 1 && !_dsStop) {
+      await new Promise(function(r) { setTimeout(r, 3000); });
+    }
+  }
+
+  if (!_dsStop) {
+    dsSetStatus('Done: ' + pdfs + ' PDF \u2713, ' + pages + ' page, ' + failed + ' failed out of ' + queue.length);
+    dsVerifyAllDone();
+  }
+}
+
+function dsStopAll() {
+  _dsStop = true;
+  dsVerifyAllDone();
+}
+
+function dsVerifyAllDone() {
+  document.getElementById('dsStopBtn').style.display  = 'none';
+  document.getElementById('dsVerifyAllBtn').style.display = 'inline-flex';
+}
+
+function dsSlug(str) { return str.replace(/[^a-z0-9]/gi,'').toLowerCase(); }
 
 function dsDaysAgo(dateStr) {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
