@@ -51,7 +51,7 @@ async function dsLoadBrand() {
   try {
     const { data, error } = await _sb
       .from('cameras')
-      .select('id, model, datasheet_url, verified_date')
+      .select('id, model, datasheet_url, verified_date, product_page_url')
       .eq('brand', brand)
       .eq('active', true)
       .order('model');
@@ -88,6 +88,7 @@ function dsRenderTable(brand, models) {
         '<button class="btn btn-ghost btn-sm" ' +
           'data-brand="' + brand + '" ' +
           'data-model="' + m.model + '" ' +
+          'data-pageurl="' + (m.product_page_url || '') + '" ' +
           'id="dsBtn_' + slug + '" ' +
           'onclick="dsVerifyModel(this)">Verify</button>' +
       '</td>' +
@@ -111,6 +112,7 @@ async function dsVerifyModel(btn) {
   const slug  = dsSlug(model);
   const inputEl   = document.getElementById('dsInput_' + slug);
   const manualUrl = inputEl ? inputEl.value.trim() : '';
+  const pageUrl   = btn.dataset.pageurl || '';
 
   btn.disabled = true;
   btn.textContent = '\u2026';
@@ -119,6 +121,7 @@ async function dsVerifyModel(btn) {
     const headers = await getAiProxyHeaders();
     const body    = { brand: brand, model: model };
     if (manualUrl) body.datasheet_url = manualUrl;
+    else if (pageUrl) body.product_page_url = pageUrl;
 
     const res = await fetch(DS_FN_URL, { method:'POST', headers:headers, body:JSON.stringify(body) });
     const out = await res.json();
@@ -217,3 +220,4 @@ function dsSlug(str) { return str.replace(/[^a-z0-9]/gi,'').toLowerCase(); }
 function dsDaysAgo(dateStr) {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
 }
+
