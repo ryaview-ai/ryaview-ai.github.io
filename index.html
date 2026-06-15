@@ -2106,8 +2106,13 @@ STRICT RULES — every rule is mandatory:
           return;
         }
       }
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '(empty)');
+        throw new Error('ai-proxy ' + res.status + ': ' + errBody);
+      }
       const data = await res.json();
       const text = (data.content || []).map(c => c.text || '').join('').trim();
+      if (!text) throw new Error('ai-proxy returned empty content');
       const ai = JSON.parse(text.replace(/```json|```/g, '').trim());
 
       // If AI winner differs from spec winner — override the winner card
