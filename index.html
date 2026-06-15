@@ -3177,6 +3177,24 @@ function buildRuntimeDB(rows) {
   window._cameraRows = rows;
 }
 
+async function syncBrandDefaultsFromDB() {
+  try {
+    const { data, error } = await _sb
+      .from('brand_compliance')
+      .select('brand_name, warranty_years_cameras, country_of_origin');
+    if (error || !data) return;
+    data.forEach(row => {
+      if (!BRAND_DEFAULTS[row.brand_name]) return;
+      if (row.warranty_years_cameras != null)
+        BRAND_DEFAULTS[row.brand_name].warranty = row.warranty_years_cameras;
+      if (row.country_of_origin)
+        BRAND_DEFAULTS[row.brand_name].country = row.country_of_origin;
+    });
+  } catch(e) {
+    console.warn('syncBrandDefaultsFromDB failed silently:', e);
+  }
+}
+
 // ── Override onAuthSuccess to load DB first ──
 const _origOnAuthSuccess = onAuthSuccess;
 // Re-define onAuthSuccess to wait for DB before showing UI
@@ -3856,6 +3874,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // (Supabase client _sb is initialised in the config block above this)
   // Wait for _sb to be ready (it's synchronous init, so this is fine)
   await loadCamerasDB();
+  await syncBrandDefaultsFromDB();
 
   const footer = document.createElement('div');
   footer.className = 'ryaview-footer';
