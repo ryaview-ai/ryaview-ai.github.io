@@ -134,7 +134,7 @@ function buildCompetitorRows(sourceRows, competitorBrand) {
   if (!compDB || !compDB.length) return [];
 
   return sourceRows
-    .filter(r => r.price > 0)
+    .filter(r => (r.customPrice != null ? r.customPrice : r.price) > 0)
     .map(r => {
       const typeMatch = compDB.filter(c =>
         c.t.toLowerCase() === (r.type || '').toLowerCase() &&
@@ -157,8 +157,8 @@ function renderTCOPage() {
   const el = document.getElementById('page-tco');
   if (!el) return;
 
-  const camRows   = (boqRows || []).filter(r => r.price > 0);
-  const audioRows = (window.audioBoqRows || []).filter(r => r.price > 0);
+  const camRows   = (boqRows || []).filter(r => (r.customPrice != null ? r.customPrice : r.price) > 0);
+  const audioRows = (window.audioBoqRows || []).filter(r => (r.customPrice != null ? r.customPrice : r.price) > 0);
   const hasCam    = camRows.length > 0;
   const hasAudio  = audioRows.length > 0;
 
