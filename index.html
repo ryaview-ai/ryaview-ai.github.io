@@ -2093,7 +2093,7 @@ STRICT RULES — every rule is mandatory:
         method: 'POST',
         headers: await getAiProxyHeaders(),
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-6',
           max_tokens: 1500,
           ryaview_feature: 'ai_verdict',
           messages: [{ role: 'user', content: prompt }]
@@ -2146,6 +2146,10 @@ STRICT RULES — every rule is mandatory:
       }
     } catch(e) {
       console.warn('AI verdict failed:', e.message);
+      cams.forEach(c => {
+        const el = document.getElementById('verdict-' + c.brand.replace(/[^a-zA-Z0-9]/g,'-') + '-' + c.model.replace(/[^a-zA-Z0-9]/g,'-'));
+        if (el) el.innerHTML = '<span style="font-size:11px;line-height:1.65;color:var(--mid)">AI analysis unavailable — try Compare again.</span>';
+      });
     }
   })();
 }
@@ -3578,7 +3582,7 @@ Return [] if no changes needed. Only include genuinely EOL models for removal. O
       method:'POST',
       headers: await getAiProxyHeaders(),
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 2000,
         messages:[{ role:'user', content: prompt }]
       })
@@ -3664,7 +3668,7 @@ async function runAiRefreshAll() {
       const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
         method:'POST',
         headers: await getAiProxyHeaders(),
-        body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000, messages:[{role:'user',content:prompt}] })
+        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:2000, messages:[{role:'user',content:prompt}] })
       });
       const data = await res.json();
       const text = (data.content||[]).map(c=>c.text||'').join('').trim();
@@ -3743,7 +3747,7 @@ Return [] if no changes needed. Only include genuinely discontinued models for r
       method:'POST',
       headers: await getAiProxyHeaders(),
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 2000,
         messages:[{ role:'user', content: prompt }]
       })
@@ -3822,7 +3826,7 @@ async function runAudioAiRefreshAll() {
       const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
         method:'POST',
         headers: await getAiProxyHeaders(),
-        body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000, messages:[{role:'user',content:prompt}] })
+        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:2000, messages:[{role:'user',content:prompt}] })
       });
       const data = await res.json();
       const text = (data.content||[]).map(c=>c.text||'').join('').trim();
