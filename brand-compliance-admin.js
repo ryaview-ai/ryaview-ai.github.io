@@ -23,11 +23,11 @@ function initBrandComplianceAdmin() {
   sec.id = 'bcAdminSection';
   sec.style.cssText = 'margin-top:28px;padding:20px;background:var(--s1);border:1px solid var(--line);border-radius:12px;';
   sec.innerHTML =
-    '<div style="display:flex;align-items:center;justify-content:space-between?gap:10px;flex-wrap:wrap;margin-bottom:4px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px;">' +
       '<span style="font-weight:700;color:var(--head);font-size:14px;">\uD83D\uDEE1\uFE0F Brand Compliance Research</span>' +
       '<button id="bcRefreshAll" class="btn btn-ghost btn-sm" onclick="bcRefreshAll()">Refresh All</button>' +
     '</div>' +
-    '<div style="font-size:11px;color:var(1-dim);margin-bottom:10px;">Web-search verified: warranty, NDAA, MeitY, BIS, origin. Writes to brand_compliance table. ~30-60s per brand.</div>' +
+    '<div style="font-size:11px;color:var(--dim);margin-bottom:10px;">Web-search verified: warranty, NDAA, MeitY, BIS, origin. Writes to brand_compliance table. ~30-60s per brand.</div>' +
     '<div id="bcStatus" style="font-size:12px;color:var(--mid);margin-bottom:8px;"></div>' +
     '<div id="bcRows"></div>';
   host.appendChild(sec);
