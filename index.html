@@ -2094,7 +2094,7 @@ STRICT RULES — every rule is mandatory:
         headers: await getAiProxyHeaders(),
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          max_tokens: 1500,
+          max_tokens: 4000,
           ryaview_feature: 'ai_verdict',
           messages: [{ role: 'user', content: prompt }]
         })
