@@ -51,7 +51,7 @@ function updatePlanBadge() {
     if (hright) hright.insertBefore(badge, hright.firstChild);
   }
   const styles = {
-    free:  { text:'FREE',  bg:'rgba(144,174,206,0.08)', border:'1px solid rgba(144,174,206,0.2)',  color:'90aece' },
+    free:  { text:'FREE',  bg:'rgba(144,174,206,0.08)', border:'1px solid rgba(144,174,206,0.2)',  color:'#90aece' },
     pro:   { text:'PRO',   bg:'rgba(79,142,247,0.12)',  border:'1.5px solid rgba(79,142,247,0.4)', color:'#7aadfa' },
     team:  { text:'TEAM',  bg:'rgba(0,200,83,0.08)',    border:'1.5px solid rgba(0,200,83,0.3)',   color:'#00c853' }
   };
