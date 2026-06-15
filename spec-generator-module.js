@@ -30,8 +30,8 @@ async function generateSpecDocx() {
   const meta = getProjMeta();
 
   // ── Validate BOQ has content ──
-  const camRows   = (boqRows   || []).filter(r => r.price > 0);
-  const audioRows = (window.audioBoqRows || []).filter(r => r.price > 0);
+  const camRows   = (boqRows   || []).filter(r => (r.customPrice != null ? r.customPrice : r.price) > 0);
+  const audioRows = (window.audioBoqRows || []).filter(r => (r.customPrice != null ? r.customPrice : r.price) > 0);
 
   if (!camRows.length && !audioRows.length) {
     showToast('Build a Camera BOQ or Audio BOQ first, then generate the spec.');
@@ -94,7 +94,7 @@ async function _aiGenerateSpecClauses(brand, camRows, audioBrand, audioRows, met
     `${r.qty}x ${r.model} (${r.type || r.cat}${r.spl ? ', ' + r.spl + 'dB' : ''})`
   ).join(', ');
 
-  const prompt = `You are a senior surveillance systems specification writer preparing a tender specification document for an Axis-authorised systems integrator in India.
+  const prompt = `You are a senior surveillance systems specification writer preparing a tender specification document for a security systems integrator in India.
 
 CONFIRMED CUSTOMER BOQ:
 Camera brand: ${brand}
@@ -163,7 +163,7 @@ MANDATORY RULES:
     method: 'POST',
     headers: await getAiProxyHeaders(),
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2000,
       ryaview_feature: 'spec_generator',
       messages: [{ role: 'user', content: prompt }]
