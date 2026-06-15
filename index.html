@@ -1612,7 +1612,7 @@ function getCamSpec(brand, modelKey) {
   return {
     brand, model: modelKey,
     type:        md.type || '—',
-    res:         md.res  || '—',
+    res:         (md.res && md.res !== 'Unknown' ? md.res : '—'),
     lowLight:    md.lowLight || 3,
     priceNum:    md.price || 0,
     price:       md.price ? '₹ '+md.price.toLocaleString('en-IN') : '—',
@@ -2375,14 +2375,14 @@ function exportPDF() {
 
   const getVerdict = (cam) => {
     const v = verdicts.find(x => x.brand === cam.brand && x.model === cam.model);
-    return v ? v.verdict : (cam.verdict || '—');
+    return v ? v.verdict : 'Run AI comparison for model-specific analysis.';
   };
 
   const rows = [
     ['Ryaview Score',   ...cams.map(c => getScore(c).total + ' / 108 TOTAL')],
     ['Resolution',      ...cams.map(c => c.res || '—')],
     ['Country of Mfr.', ...cams.map(c => c.country || '—')],
-    ['Low Light',       ...cams.map(c => ('●'.repeat(c.lowLight) + '○'.repeat(5-c.lowLight)) + '  (' + c.lowLight + '/5)')],
+    ['Low Light',       ...cams.map(c => c.lowLight + '/5')],
     ['Unit Price (INR)',...cams.map(c => c.priceNum > 0 ? pdfInr(c.priceNum) : '—')],
     ['Warranty',        ...cams.map(c => c.warranty + ' Years  —  ' + (c.warrantyType||''))],
     ['Compression',     ...cams.map(c => (c.codecs||[]).join(', ') + '\n' + (c.saving||''))],
