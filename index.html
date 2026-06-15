@@ -2745,7 +2745,7 @@ function selectAltBrand(btn, brand) {
 
   const tbody = document.getElementById('alt-tbody');
   tbody.innerHTML = '';
-  const srcRows = boqRows.filter(r => r.price > 0);
+  const srcRows = boqRows.filter(r => r.model);
   const count   = Math.max(srcRows.length, 1);
 
   for (let i = 0; i < count; i++) {
