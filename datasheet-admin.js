@@ -51,13 +51,13 @@ async function dsLoadBrand() {
   try {
     const { data, error } = await _sb
       .from('cameras')
-      .select('id, model, datasheet_url, verified_date, product_page_url')
+      .select('id, model, datasheet_url, specs_verified, specs_verified_date, product_page_url')
       .eq('brand', brand)
       .eq('active', true)
       .order('model');
     if (error) throw error;
     if (!data || !data.length) { dsSetStatus('No active models for ' + brand); return; }
-    const unverified = data.filter(function(m) { return !m.verified_date; }).length;
+    const unverified = data.filter(function(m) { return !m.specs_verified || !m.specs_verified_date; }).length;
     dsSetStatus(data.length + ' models · ' + unverified + ' unverified');
     dsRenderTable(brand, data);
     document.getElementById('dsVerifyAllBtn').style.display = unverified > 0 ? 'inline-flex' : 'none';
@@ -71,7 +71,7 @@ function dsRenderTable(brand, models) {
   const rows = models.map(function(m) {
     const hasUrl = !!m.datasheet_url;
     const isPdf  = hasUrl && m.datasheet_url.toLowerCase().includes('.pdf');
-    const ago    = m.verified_date ? dsDaysAgo(m.verified_date) + 'd ago' : '\u2014';
+    const ago    = (m.specs_verified && m.specs_verified_date) ? dsDaysAgo(m.specs_verified_date) + 'd ago' : '\u2014';
     const urlLabel = isPdf ? '\u2197 PDF' : (hasUrl ? '\u2197 page' : '\u2014');
     const urlColor = isPdf ? 'var(--money)' : 'var(--acc)';
     const urlCell  = hasUrl
