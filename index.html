@@ -1981,7 +1981,7 @@ function runCompare() {
     try {
       const models = cams.map(c => c.model);
       const { data: fresRows } = await _sb.from('cameras')
-        .select('model, verified_date, datasheet_url')
+        .select('model, specs_verified, specs_verified_date, datasheet_url')
         .in('model', models);
       if (!fresRows) return;
       const fm = {};
@@ -1990,11 +1990,11 @@ function runCompare() {
         const el = document.getElementById('fresh-' + c.model.replace(/[^a-zA-Z0-9]/g,'-'));
         if (!el) return;
         const dbRow = fm[c.model];
-        if (!dbRow || !dbRow.verified_date) {
+        if (!dbRow || !dbRow.specs_verified || !dbRow.specs_verified_date) {
           el.textContent = '⚠ Not yet verified';
           el.style.color = 'var(--dim)';
         } else {
-          const days = Math.floor((Date.now() - new Date(dbRow.verified_date).getTime()) / 86400000);
+          const days = Math.floor((Date.now() - new Date(dbRow.specs_verified_date).getTime()) / 86400000);
           const freshLabel = days === 0 ? 'today' : days === 1 ? '1 day ago' : days + ' days ago';
           const src = dbRow.datasheet_url
             ? ' · <a href="' + dbRow.datasheet_url + '" target="_blank" rel="noopener" style="color:var(--blue2);text-decoration:none">View Source ↗<\/a>'
