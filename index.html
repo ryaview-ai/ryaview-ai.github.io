@@ -1087,6 +1087,7 @@ async function fetchForex() {
       method: 'POST',
       headers: await getAiProxyHeaders(),
       body: JSON.stringify({
+        ryaview_feature: 'forex',
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 64,
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
@@ -3587,6 +3588,7 @@ Return [] if no changes needed. Only include genuinely EOL models for removal. O
       method:'POST',
       headers: await getAiProxyHeaders(),
       body: JSON.stringify({
+        ryaview_feature: 'admin_brand_refresh',
         model: 'claude-sonnet-4-6',
         max_tokens: 2000,
         messages:[{ role:'user', content: prompt }]
@@ -3673,7 +3675,7 @@ async function runAiRefreshAll() {
       const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
         method:'POST',
         headers: await getAiProxyHeaders(),
-        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:2000, messages:[{role:'user',content:prompt}] })
+        body: JSON.stringify({ ryaview_feature:'admin_brand_refresh', model:'claude-sonnet-4-6', max_tokens:2000, messages:[{role:'user',content:prompt}] })
       });
       const data = await res.json();
       const text = (data.content||[]).map(c=>c.text||'').join('').trim();
@@ -3752,6 +3754,7 @@ Return [] if no changes needed. Only include genuinely discontinued models for r
       method:'POST',
       headers: await getAiProxyHeaders(),
       body: JSON.stringify({
+        ryaview_feature: 'admin_brand_refresh',
         model: 'claude-sonnet-4-6',
         max_tokens: 2000,
         messages:[{ role:'user', content: prompt }]
@@ -3831,7 +3834,7 @@ async function runAudioAiRefreshAll() {
       const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
         method:'POST',
         headers: await getAiProxyHeaders(),
-        body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:2000, messages:[{role:'user',content:prompt}] })
+        body: JSON.stringify({ ryaview_feature:'admin_brand_refresh', model:'claude-sonnet-4-6', max_tokens:2000, messages:[{role:'user',content:prompt}] })
       });
       const data = await res.json();
       const text = (data.content||[]).map(c=>c.text||'').join('').trim();
