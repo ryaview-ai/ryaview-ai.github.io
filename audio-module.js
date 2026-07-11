@@ -453,7 +453,7 @@ CRITICAL: matched_model MUST exist verbatim in the ${audioAltBrand} catalogue ab
     const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
       method:'POST',
       headers: await getAiProxyHeaders(),
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000,
+      body: JSON.stringify({ ryaview_feature:'audio_alt', model:'claude-sonnet-4-6', max_tokens:1000,
         messages:[{role:'user',content:prompt}] })
     });
     const data = await res.json();
@@ -679,7 +679,7 @@ RULES:
     const res = await fetch('https://ssytbjfhjuhgnvgdvgkh.supabase.co/functions/v1/ai-proxy', {
       method:'POST',
       headers: await getAiProxyHeaders(),
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1500,
+      body: JSON.stringify({ ryaview_feature:'audio_verdict', model:'claude-sonnet-4-6', max_tokens:1500,
         messages:[{role:'user',content:prompt}] })
     });
     const data = await res.json();
